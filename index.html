@@ -490,6 +490,31 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-acti
 #abilRing{position:absolute;inset:-4px;border-radius:50%;pointer-events:none;width:auto;height:auto}
 #abilTxt{position:absolute;left:-22px;right:-22px;bottom:-16px;text-align:center;
   font:800 10px/1 "Trebuchet MS",sans-serif;text-shadow:0 1px 3px #000;letter-spacing:.6px}
+/* Super fully charged: the button glows and breathes until you spend it */
+#abil.rdy{border-color:#ffe27a;
+  background:radial-gradient(circle at 50% 35%,rgba(255,240,170,.6),rgba(210,150,40,.6));
+  box-shadow:0 0 26px rgba(245,197,66,.75);animation:abilBreathe 1.1s ease-in-out infinite}
+#abil.rdy svg{fill:#fff6d8}
+#abil.rdy #abilTxt{color:#fff2c0}
+@keyframes abilBreathe{0%,100%{box-shadow:0 0 20px rgba(245,197,66,.55)}
+  50%{box-shadow:0 0 34px rgba(245,197,66,.95)}}
+#abil.rdy.pop{animation:abilPop .5s cubic-bezier(.2,1.6,.4,1),abilBreathe 1.1s ease-in-out infinite}
+@keyframes abilPop{0%{transform:translate(50%,50%) scale(1)}
+  45%{transform:translate(50%,50%) scale(1.24)}100%{transform:translate(50%,50%) scale(1)}}
+
+/* out-of-combat regen: a soft green halo on the health bar */
+#hpBar.regen{box-shadow:0 0 12px 1px rgba(124,196,95,.8);animation:regenPulse 1.05s ease-in-out infinite}
+@keyframes regenPulse{0%,100%{box-shadow:0 0 8px 0 rgba(124,196,95,.45)}
+  50%{box-shadow:0 0 16px 2px rgba(124,196,95,.9)}}
+
+/* knockout streak banner, front and centre */
+#koBanner{position:absolute;left:0;right:0;top:34%;text-align:center;pointer-events:none;
+  font:800 clamp(24px,7vh,44px)/1 "Trebuchet MS",sans-serif;letter-spacing:2px;opacity:0;
+  color:#fff2c0;text-shadow:0 3px 0 rgba(120,70,0,.7),0 0 22px rgba(245,197,66,.8)}
+#koBanner.show{animation:koPop 2.1s cubic-bezier(.2,1.5,.4,1) forwards}
+@keyframes koPop{0%{opacity:0;transform:scale(.4) rotate(-6deg)}
+  16%{opacity:1;transform:scale(1.12) rotate(2deg)}30%{transform:scale(1) rotate(0)}
+  78%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.05)}}
 
 #atk{position:absolute;right:14px;bottom:152px;width:84px;height:84px;border-radius:50%;
   pointer-events:auto;cursor:pointer;border:3px solid var(--gold);background:rgba(245,197,66,.22);
@@ -599,6 +624,8 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="panel" style="padding:12px;font:600 12px/1.6 'Trebuchet MS',sans-serif;color:var(--dim)">
           Drag the left half of the screen to move. The button on the right attacks and can be held down.
           Weapons are only found on the ground — you land with nothing but your claws.
+          Your Super charges as you deal and take damage, so pick fights to fill it. Break away from
+          combat for a few seconds and your health slowly grows back on its own.
         </div>
       </div>
     </div>
@@ -653,6 +680,7 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-acti
       <div id="lootName">MEDKIT</div>
     </div>
     <div id="dmg"></div>
+    <div id="koBanner"></div>
     <div id="lowhp"></div>
     <div id="dropMsg" class="hidden"><h2>Dropping in</h2><p>You land with nothing. Find a weapon.</p></div>
   </div>
@@ -2395,6 +2423,20 @@ let graceT=0;
 let lootProg=0;
 const LOOT_TIME=0.85;   // seconds standing on an item before it's yours
 
+/* --- Brawl-Stars-style Super charging ---------------------------------
+   Your Super is no longer a plain timer you wait out. It fills as you deal
+   and take damage, with only a slow passive trickle when you keep to
+   yourself — so the way to earn it is to get in a fight and land hits. */
+const SUPER_PASSIVE=0.40;   // share of real time the cooldown drains on its own
+const SUPER_HIT=0.085;      // seconds of charge earned per point of damage dealt
+const SUPER_TAKE=0.05;      // per point of damage taken (a small comeback nudge)
+const SUPER_KO=3.4;         // extra charge granted for a knockout
+/* --- out-of-combat regeneration (Zooba / Brawl Stars) --- */
+const REGEN_DELAY=4.0;      // seconds untouched before health starts returning
+const REGEN_RATE=0.12;      // share of max health returned per second
+let superWasReady=false;    // HUD edge-detect for the "Super ready" flourish
+let koCount=0, koTimer=0;   // running knockout streak for the banner
+
 function makeEnt(x,z,key,isPlayer,name){
   const C=CHARS[key], D=DIFFS[sel.diff];
   const lv = isPlayer ? (PROG.lvl[key]||1) : 1;
@@ -2413,7 +2455,7 @@ function makeEnt(x,z,key,isPlayer,name){
     cd:{claws:0,sword:0,spear:0,bow:0},
     lv, dmgMul: isPlayer?lvlDmg(key,lv):1,
     kits: isPlayer ? D.kits + (key==='rat'?1:0) : randInt(0,1),
-    abil:0,abilT:0,hidden:0,air:0,slow:0,
+    abil:(C.active?C.active.cd:0),abilT:0,hidden:0,air:0,slow:0,noHit:99,
     swing:0,flash:0,step:rand(0,TAU),
     glider:null, heldObj:null,
     think:0,mood:'roam',goal:null,target:null,strafe:0,jitter:rand(0,TAU),
@@ -2478,6 +2520,8 @@ function startMatch(){
   }
   makeGhost(); buildAimGizmo(); hideAim(); aim.pid=null; aim.active=false;
   fallT=4.4; elapsed=0; placement=0; nearLoot=null; shakeAmt=0; graceT=6;
+  superWasReady=false; koCount=0; koTimer=0;
+  const kb=$('koBanner'); if(kb){ kb.classList.remove('show'); kb.textContent=''; }
   camYaw=0;
   camPos.set(player.x, 60, player.z+40);
   setState('falling');
@@ -2527,12 +2571,30 @@ function ring(x,z,color,maxR){
   puffs.push({m,ring:true,maxR,t:0.45,life:0.45});
 }
 
+/* Feed a fighter's Super. Charge is spent by burning down the same `abil`
+   cooldown the rest of the game already reads, so every "is it ready?" check
+   keeps working — we just fill it through combat instead of the clock. */
+function gainSuper(e,sec){
+  if(!e||!e.alive||e.abil<=0) return;
+  e.abil=Math.max(0,e.abil-sec);
+}
+/* Knockout streak banner — resets if you go a couple of seconds without one. */
+const KO_WORDS=['KNOCKOUT!','DOUBLE KO!','TRIPLE KO!','QUAD KO!','RAMPAGE!'];
+function koStreak(){
+  koCount++; koTimer=2.4;
+  const el=$('koBanner');
+  el.textContent=KO_WORDS[Math.min(koCount-1,KO_WORDS.length-1)];
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+}
+
 function damage(e,amt,fx,fz,knock,byPlayer,src){
   if(!e.alive||e.air>0.02) return;
   if(!byPlayer) amt*=DIFFS[sel.diff].dmg;
   if(e.key==='boar') amt*=0.85;                                        // Thick Hide
   if(src&&src.key==='fox'&&src.abil>0) src.abil=Math.max(0,src.abil-1); // Hot Streak
-  e.hp-=amt; e.flash=0.14;
+  e.hp-=amt; e.flash=0.14; e.noHit=0;
+  gainSuper(e, amt*SUPER_TAKE);                 // taking a hit feeds your Super
+  if(src&&src!==e) gainSuper(src, amt*SUPER_HIT); // landing one feeds it more
   const a=Math.atan2(e.x-fx,e.z-fz);
   e.vx+=Math.sin(a)*knock; e.vz+=Math.cos(a)*knock;
   burst(e.x,1.0,e.z,0xb53c33,6,5);
@@ -2547,7 +2609,10 @@ function damage(e,amt,fx,fz,knock,byPlayer,src){
     for(let i=0;i<e.kits;i++) dropLoot(e.x+rand(-1,1),e.z+rand(-1,1),'medkit');
     entGroup.remove(e.obj); entGroup.remove(e.shadow);
     if(e.isPlayer){ placement=ents.filter(o=>o.alive).length+1; endMatch(false); }
-    else { SND.play('death'); floatText(e.x,2.6,e.z,e.name+' down','#d5e6cd',15); }
+    else {
+      SND.play('death'); floatText(e.x,2.6,e.z,e.name+' down','#d5e6cd',15);
+      if(src&&src.isPlayer){ gainSuper(src, SUPER_KO); koStreak(); }  // reward the finish
+    }
   }
 }
 function dropLoot(x,z,kind){
@@ -2807,7 +2872,7 @@ function useAbility(e){
 }
 
 function tickAbility(e,dt){
-  e.abil=Math.max(0,e.abil-dt);
+  e.abil=Math.max(0,e.abil-dt*SUPER_PASSIVE);   // slow trickle; combat does the rest
   e.abilT=Math.max(0,e.abilT-dt);
   e.hidden=Math.max(0,e.hidden-dt);
   e.slow=Math.max(0,e.slow-dt);
@@ -3305,6 +3370,7 @@ function update(dt){
 
   elapsed+=dt;
   graceT=Math.max(0,graceT-dt);
+  if(koTimer>0){ koTimer-=dt; if(koTimer<=0) koCount=0; }
   stepPending(dt);
   stepStorm(dt);
 
@@ -3348,8 +3414,19 @@ function update(dt){
       else if(e.key==='frog') e.hp=Math.min(e.maxHp,e.hp+4*dt);
     }
 
+    /* out-of-combat regeneration: hold still from a fight and health returns */
+    e.noHit+=dt;
+    if(e.noHit>REGEN_DELAY&&e.hp>0&&e.hp<e.maxHp&&e.air<=0){
+      e.hp=Math.min(e.maxHp,e.hp+e.maxHp*REGEN_RATE*dt);
+      if(e.isPlayer&&Math.random()<dt*6){                 // faint upward motes
+        const m=getPuff(0x8fe08a,rand(0.06,0.12));
+        m.position.set(e.x+rand(-0.6,0.6),0.6,e.z+rand(-0.6,0.6));
+        puffs.push({m,vx:0,vy:rand(1.4,2.6),vz:0,t:rand(0.4,0.7),life:0.7});
+      }
+    }
+
     if(d2(e.x,e.z,storm.x,storm.z)>storm.r&&storm.dps>0){
-      e.hp-=storm.dps*dt;
+      e.hp-=storm.dps*dt; e.noHit=0;                       // storm blocks regen
       if(e.hp<=0) damage(e,1,e.x,e.z+1,0,false);
     }
     if(!e.isPlayer&&e.air<=0)
@@ -3659,6 +3736,7 @@ function updateHUD(dt){
   fill.style.width=(f*100)+'%';
   fill.style.background = f>0.55?'var(--green)':f>0.28?'#dfae3a':'var(--red)';
   $('hpTxt').textContent=Math.ceil(player.hp)+' / '+player.maxHp;
+  $('hpBar').classList.toggle('regen', player.alive&&player.noHit>REGEN_DELAY&&player.hp<player.maxHp);
   $('hpName').textContent=player.C.name+' · '+skinOf(player.key).label;
   $('lowhp').style.opacity = f<0.3 ? (0.35+(0.3-f)/0.3*0.6)*(0.7+Math.sin(timeNow*7)*0.3) : 0;
 
@@ -3676,8 +3754,12 @@ function updateHUD(dt){
   $('aimHint').style.display = aim.active?'block':'none';
 
   const ab=$('abil'), A=player.C.active, ready=player.abil<=0;
-  ab.className = ready?'':'cool';
-  $('abilTxt').textContent = ready?A.name:Math.ceil(player.abil)+'s';
+  ab.classList.toggle('cool', !ready);
+  ab.classList.toggle('rdy', ready);
+  if(ready && !superWasReady){ SND.play('select'); void ab.offsetWidth; ab.classList.add('pop'); }
+  if(!ready) ab.classList.remove('pop');
+  superWasReady=ready;
+  $('abilTxt').textContent = ready?A.name:Math.round((1-player.abil/A.cd)*100)+'%';
   // build the circle once, then only touch attributes
   let ac=$('abilRing').firstElementChild;
   if(!ac){
