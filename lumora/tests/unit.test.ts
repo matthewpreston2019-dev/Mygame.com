@@ -26,6 +26,7 @@ describe('auto router', () => {
     ['Explícame la fotosíntesis', 'study'],
     ['Écris un courriel professionnel', 'writing'],
     ['hi there', 'general'],
+    ['What is the weather like in Paris?', 'general'],
   ])('%s → %s', (text, mode) => {
     expect(routeRequest(t(text)).mode).toBe(mode);
   });

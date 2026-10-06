@@ -16,6 +16,8 @@ type Rule = { mode: BuiltInModeId; weight: number; re: RegExp };
 
 // Multilingual keyword hints (EN, ES, FR, DE, PT, IT + a few CJK terms).
 const RULES: Rule[] = [
+  // Everyday lookups stay in General (weather, time, quick facts)
+  { mode: 'general', weight: 4, re: /\b(weather|forecast|temperature (in|outside)|what time is it|time in)\b/i },
   // Coding
   { mode: 'coding', weight: 4, re: /```|\b(traceback|stack ?trace|segfault|exception|syntaxerror|typeerror|referenceerror|nullpointer|undefined is not|cannot read propert)/i },
   { mode: 'coding', weight: 3, re: /\b(code|coding|debug|bug|compile|refactor|function|method|class|regex|api|endpoint|sql|query|script|repo|git|npm|pip|docker|kubernetes|typescript|javascript|python|java|rust|golang|c\+\+|c#|php|ruby|kotlin|swift|react|vue|angular|node\.?js|django|flask|html|css|algorithm|unit test)\b/i },
