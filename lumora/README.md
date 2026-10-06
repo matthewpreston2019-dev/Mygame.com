@@ -1,5 +1,7 @@
 # Lumora — personal multi-model AI workspace
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/618a2efb-595b-474b-a870-2c9b69e2ff25/deploy-status)](https://app.netlify.com/projects/lumora8/deploys)
+
 Lumora is a self-hosted AI assistant platform for Netlify. It is a **unified interface and orchestrator**: it connects to the AI providers you choose (Anthropic, OpenAI, Google Gemini, OpenRouter, Groq, any OpenAI-compatible API, or local Ollama). It routes each request to a suitable model and gives the model real tools, all behind your own authentication. There are no fake responses: if a feature needs an API key, the README and the UI say so.
 
 ![modes](https://img.shields.io/badge/modes-Auto%20%C2%B7%208%20built--in%20%C2%B7%20custom-8b7bff) ![providers](https://img.shields.io/badge/providers-Anthropic%20%C2%B7%20OpenAI%20%C2%B7%20Gemini%20%C2%B7%20OpenRouter%20%C2%B7%20Groq%20%C2%B7%20Ollama-2fd4c4)
