@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calm — Apple Design Sample</title>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --card: #ffffff;
+    --accent: #0071e3;
+    --glass: rgba(255, 255, 255, 0.6);
+    --glass-edge: rgba(255, 255, 255, 0.5);
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    font: 100%/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000; --text: #f5f5f7; --muted: #98989d; --card: #1c1c1e;
+      --glass: rgba(30, 30, 32, 0.6); --glass-edge: rgba(255, 255, 255, 0.12);
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+
+  /* Translucent nav: content scrolls under it */
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.9rem max(1.25rem, 5vw);
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--glass-edge);
+    font-size: 0.9rem;
+  }
+  nav b { font-weight: 600; letter-spacing: -0.01em; }
+  nav span { color: var(--muted); }
+
+  header { text-align: center; padding: 7rem 1.25rem 4rem; }
+  h1 {
+    font-size: clamp(2.5rem, 8vw, 5.5rem);
+    line-height: 1.02; letter-spacing: -0.035em; font-weight: 700;
+    font-optical-sizing: auto;
+  }
+  header p {
+    margin: 1.25rem auto 2rem; max-width: 30ch;
+    font-size: clamp(1.1rem, 2.4vw, 1.5rem); line-height: 1.3; color: var(--muted);
+  }
+
+  .btn {
+    appearance: none; border: 0; cursor: pointer;
+    background: var(--accent); color: #fff;
+    font: inherit; font-weight: 500; padding: 0.75rem 1.6rem; border-radius: 999px;
+    transition: transform 100ms ease-out, opacity 100ms;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .btn:active { transform: scale(0.96); opacity: 0.9; }   /* feedback on press, not release */
+
+  /* Draggable carousel */
+  .carousel { overflow: hidden; padding: 1rem 0 3rem; touch-action: pan-y; cursor: grab; }
+  .carousel:active { cursor: grabbing; }
+  .track { display: flex; gap: 1.25rem; padding: 0 max(1.25rem, 5vw); will-change: transform; width: max-content; }
+  .card {
+    width: min(78vw, 340px); aspect-ratio: 4 / 5; flex: none;
+    border-radius: 28px; padding: 1.75rem; background: var(--card);
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column; justify-content: flex-end;
+    user-select: none; -webkit-user-select: none;
+  }
+  .card .dot { width: 3rem; height: 3rem; border-radius: 50%; margin-bottom: auto; }
+  .card h2 { font-size: 1.6rem; letter-spacing: -0.02em; line-height: 1.1; }
+  .card p { margin-top: 0.4rem; color: var(--muted); font-size: 0.95rem; }
+
+  .hint { text-align: center; color: var(--muted); font-size: 0.85rem; padding-bottom: 5rem; }
+
+  /* Sheet */
+  .scrim { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 20; }
+  .sheet {
+    position: fixed; left: 50%; bottom: 0; z-index: 30;
+    width: min(100%, 520px); margin-left: calc(min(100%, 520px) / -2);
+    padding: 0.75rem 1.5rem calc(2rem + env(safe-area-inset-bottom));
+    border-radius: 28px 28px 0 0;
+    background: var(--glass);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    border-top: 1px solid var(--glass-edge);
+    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.15);
+    transform: translateY(110%); will-change: transform; touch-action: none;
+  }
+  .grab { width: 2.4rem; height: 5px; border-radius: 3px; background: var(--muted); opacity: 0.5; margin: 0 auto 1.25rem; }
+  .sheet h3 { font-size: 1.5rem; letter-spacing: -0.02em; }
+  .sheet p { color: var(--muted); margin: 0.5rem 0 1.5rem; }
+
+  @media (prefers-reduced-transparency: reduce) {
+    nav, .sheet { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  }
+  @media (prefers-contrast: more) {
+    nav, .sheet { background: var(--card); border-color: var(--text); }
+  }
+</style>
+</head>
+<body>
+
+<nav><b>Calm</b><span>Breathe</span></nav>
+
+<header>
+  <h1>Slow down.<br>Feel it.</h1>
+  <p>Interfaces that move the way you think.</p>
+  <button class="btn" id="open">Begin</button>
+</header>
+
+<div class="carousel" id="carousel">
+  <div class="track" id="track">
+    <div class="card"><div class="dot" style="background:#ff9f0a"></div><h2>Morning</h2><p>Start gently, with light.</p></div>
+    <div class="card"><div class="dot" style="background:#30d158"></div><h2>Focus</h2><p>One thing at a time.</p></div>
+    <div class="card"><div class="dot" style="background:#0a84ff"></div><h2>Evening</h2><p>Let the day settle.</p></div>
+    <div class="card"><div class="dot" style="background:#bf5af2"></div><h2>Sleep</h2><p>Quiet, dark, still.</p></div>
+  </div>
+</div>
+<p class="hint">Drag the cards. Flick them. Grab one mid-flight.</p>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-label="Begin">
+  <div class="grab"></div>
+  <h3>Ready when you are</h3>
+  <p>Drag this sheet down to dismiss, or flick it away.</p>
+  <button class="btn" id="close">Done</button>
+</div>
+
+<script>
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Spring with Apple-style params: damping ratio + response (seconds). Starts from the live value + velocity. */
+function Spring(value, apply) {
+  let x = value, v = 0, target = value, raf = 0, last = 0, cfg = { damping: 1, response: 0.4 };
+  function step(t) {
+    const dt = Math.min((t - last) / 1000, 0.032); last = t;
+    const w = 2 * Math.PI / cfg.response, k = w * w, c = 2 * cfg.damping * w;
+    for (let i = 0; i < 4; i++) {
+      v += (-k * (x - target) - c * v) * (dt / 4);
+      x += v * (dt / 4);
+    }
+    apply(x);
+    if (Math.abs(v) < 0.02 && Math.abs(x - target) < 0.05) { x = target; v = 0; apply(x); raf = 0; return; }
+    raf = requestAnimationFrame(step);
+  }
+  return {
+    get value() { return x; },
+    set(val) { cancelAnimationFrame(raf); raf = 0; x = val; v = 0; apply(x); },   // 1:1 tracking
+    to(t, o = {}) {                                                                // animate from current value
+      target = t; v = o.velocity ?? v; cfg = { damping: o.damping ?? 1, response: o.response ?? 0.4 };
+      if (reduced) { x = t; v = 0; apply(x); return; }
+      if (!raf) { last = performance.now(); raf = requestAnimationFrame(step); }
+    },
+    stop() { cancelAnimationFrame(raf); raf = 0; v = 0; target = x; }              // grabbing mid-flight
+  };
+}
+
+/* Momentum projection (Apple's formula) */
+const project = (v, d = 0.998) => (v / 1000) * d / (1 - d);
+
+/* Soft boundary */
+const rubber = (over, dim, c = 0.55) => (over * dim * c) / (dim + c * Math.abs(over));
+
+/* Velocity from the last few pointer samples */
+function tracker() {
+  let s = [];
+  return {
+    reset() { s = []; },
+    add(p) { const t = performance.now(); s.push([p, t]); s = s.filter(a => t - a[1] < 100); },
+    get v() { if (s.length < 2) return 0; const a = s[0], b = s[s.length - 1]; return b[1] === a[1] ? 0 : (b[0] - a[0]) / ((b[1] - a[1]) / 1000); }
+  };
+}
+
+/* ---------- Carousel ---------- */
+(() => {
+  const el = document.getElementById('carousel'), track = document.getElementById('track');
+  const spring = Spring(0, x => track.style.transform = `translate3d(${x}px,0,0)`);
+  const vt = tracker();
+  let min = 0, startX = 0, startPos = 0, id = null, dragging = false, decided = false, startY = 0;
+  const bounds = () => { min = Math.min(0, el.clientWidth - track.scrollWidth); };
+  const snaps = () => {
+    const pad = parseFloat(getComputedStyle(track).paddingLeft);
+    return [...track.children].map(c => Math.max(min, Math.min(0, -(c.offsetLeft - pad))));
+  };
+  addEventListener('resize', bounds); bounds();
+
+  el.addEventListener('pointerdown', e => {
+    id = e.pointerId; startX = e.clientX; startY = e.clientY; decided = false; dragging = false;
+    spring.stop(); startPos = spring.value; vt.reset(); vt.add(e.clientX);   // grab mid-flight, from the live value
+  });
+  el.addEventListener('pointermove', e => {
+    if (e.pointerId !== id) return;
+    const dx = e.clientX - startX;
+    if (!decided) {                                   // ~10px hysteresis before committing direction
+      if (Math.hypot(dx, e.clientY - startY) < 10) return;
+      decided = true; dragging = Math.abs(dx) > Math.abs(e.clientY - startY);
+      if (dragging) el.setPointerCapture(id);
+    }
+    if (!dragging) return;
+    vt.add(e.clientX);
+    let p = startPos + dx;
+    if (p > 0) p = rubber(p, el.clientWidth);         // rubber-band at edges
+    else if (p < min) p = min - rubber(min - p, el.clientWidth);
+    spring.set(p);
+  });
+  const end = e => {
+    if (e.pointerId !== id) return; id = null;
+    if (!dragging) return;
+    const v = vt.v, landing = spring.value + project(v);          // where the flick is heading
+    const target = snaps().reduce((a, b) => Math.abs(b - landing) < Math.abs(a - landing) ? b : a);
+    spring.to(target, { velocity: v, damping: 0.8, response: 0.5 }); // bounce only because momentum existed
+  };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+})();
+
+/* ---------- Sheet ---------- */
+(() => {
+  const sheet = document.getElementById('sheet'), scrim = document.getElementById('scrim');
+  const H = () => sheet.offsetHeight + 40;
+  const spring = Spring(1e4, y => {
+    sheet.style.transform = `translate3d(0,${y}px,0)`;
+    const open = Math.max(0, Math.min(1, 1 - y / H()));
+    scrim.style.opacity = open * 0.3;
+    scrim.style.pointerEvents = open > 0.05 ? 'auto' : 'none';
+  });
+  const vt = tracker();
+  let startY = 0, startPos = 0, id = null;
+  const open = () => { if (spring.value > H()) spring.set(H()); spring.to(0, { damping: 0.8, response: 0.4 }); };
+  const close = (v = 0) => spring.to(H() + 20, { velocity: v, damping: 1, response: 0.4 });  // exits the way it came in
+
+  document.getElementById('open').onclick = open;
+  document.getElementById('close').onclick = () => close();
+  scrim.onclick = () => close();
+  addEventListener('keydown', e => e.key === 'Escape' && close());
+
+  sheet.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    id = e.pointerId; sheet.setPointerCapture(id);
+    spring.stop(); startY = e.clientY; startPos = spring.value; vt.reset(); vt.add(e.clientY);
+  });
+  sheet.addEventListener('pointermove', e => {
+    if (e.pointerId !== id) return;
+    vt.add(e.clientY);
+    const p = startPos + (e.clientY - startY);
+    spring.set(p < 0 ? -rubber(-p, 300) : p);         // resist dragging upward
+  });
+  const end = e => {
+    if (e.pointerId !== id) return; id = null;
+    const v = vt.v, landing = spring.value + project(v, 0.99);
+    landing > H() / 2 ? close(v) : spring.to(0, { velocity: v, damping: 0.8, response: 0.4 });
+  };
+  sheet.addEventListener('pointerup', end); sheet.addEventListener('pointercancel', end);
+  addEventListener('resize', () => { if (spring.value > 0) spring.set(H() + 20); });
+  spring.set(H() + 20);
+})();
+</script>
+</body>
+</html>
