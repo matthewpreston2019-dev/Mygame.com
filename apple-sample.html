@@ -3,261 +3,437 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Calm — Apple Design Sample</title>
+<title>Calm — Breathe</title>
 <style>
+  @property --s { syntax: '<number>'; inherits: true; initial-value: 0.45; }
+
   :root {
-    --bg: #f5f5f7;
-    --text: #1d1d1f;
-    --muted: #6e6e73;
-    --card: #ffffff;
-    --accent: #0071e3;
-    --glass: rgba(255, 255, 255, 0.6);
-    --glass-edge: rgba(255, 255, 255, 0.5);
-    --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    --bg: #f5f5f7; --text: #1d1d1f; --muted: #6e6e73; --card: #fff;
+    --accent: #0071e3; --glass: rgba(255,255,255,.62); --glass-edge: rgba(255,255,255,.55);
+    --shadow: 0 10px 30px rgba(0,0,0,.08); --line: rgba(0,0,0,.1);
+    --ease: cubic-bezier(.2,.8,.2,1);
     font: 100%/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #000; --text: #f5f5f7; --muted: #98989d; --card: #1c1c1e;
-      --glass: rgba(30, 30, 32, 0.6); --glass-edge: rgba(255, 255, 255, 0.12);
-      --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      --glass: rgba(30,30,32,.62); --glass-edge: rgba(255,255,255,.12);
+      --shadow: 0 10px 30px rgba(0,0,0,.5); --line: rgba(255,255,255,.14);
     }
   }
   * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
   body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  button { font: inherit; color: inherit; }
 
-  /* Translucent nav: content scrolls under it */
+  /* ---------- Nav: translucent, content scrolls under ---------- */
   nav {
-    position: sticky; top: 0; z-index: 10;
+    position: fixed; inset: 0 0 auto 0; z-index: 10;
     display: flex; justify-content: space-between; align-items: center;
-    padding: 0.9rem max(1.25rem, 5vw);
-    background: var(--glass);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid var(--glass-edge);
-    font-size: 0.9rem;
+    padding: .9rem max(1.25rem, 5vw); font-size: .9rem;
+    background: var(--glass); border-bottom: 1px solid var(--glass-edge);
+    backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
-  nav b { font-weight: 600; letter-spacing: -0.01em; }
-  nav span { color: var(--muted); }
+  nav b { font-weight: 600; letter-spacing: -.01em; }
+  nav a { color: var(--muted); text-decoration: none; }
 
-  header { text-align: center; padding: 7rem 1.25rem 4rem; }
-  h1 {
-    font-size: clamp(2.5rem, 8vw, 5.5rem);
-    line-height: 1.02; letter-spacing: -0.035em; font-weight: 700;
-    font-optical-sizing: auto;
-  }
-  header p {
-    margin: 1.25rem auto 2rem; max-width: 30ch;
-    font-size: clamp(1.1rem, 2.4vw, 1.5rem); line-height: 1.3; color: var(--muted);
-  }
+  /* ---------- Hero ---------- */
+  .hero { position: relative; min-height: 100svh; display: grid; place-items: center; text-align: center; padding: 6rem 1.25rem 4rem; overflow: hidden; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .5; will-change: transform; animation: drift 22s ease-in-out infinite alternate; }
+  .blob.a { width: 46vmax; height: 46vmax; background: #ff9f6b; top: -12vmax; left: -14vmax; }
+  .blob.b { width: 42vmax; height: 42vmax; background: #7aa7ff; bottom: -14vmax; right: -12vmax; animation-delay: -7s; }
+  .blob.c { width: 34vmax; height: 34vmax; background: #c58bff; top: 30%; left: 40%; animation-delay: -13s; opacity: .35; }
+  @keyframes drift { to { transform: translate3d(6vmax, 4vmax, 0) scale(1.15); } }
 
-  .btn {
-    appearance: none; border: 0; cursor: pointer;
-    background: var(--accent); color: #fff;
-    font: inherit; font-weight: 500; padding: 0.75rem 1.6rem; border-radius: 999px;
-    transition: transform 100ms ease-out, opacity 100ms;
-    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  }
-  .btn:active { transform: scale(0.96); opacity: 0.9; }   /* feedback on press, not release */
+  .hero-inner { position: relative; transform: translate3d(0, calc(var(--p, 0) * 60px), 0); opacity: calc(1 - var(--p, 0) * 1.2); }
+  .mini-orb { width: 7.5rem; height: 7.5rem; margin: 0 auto 2.2rem; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #bcd6ff 35%, #7aa7ff 70%, #9b7bff);
+    box-shadow: 0 0 60px rgba(122,167,255,.55); animation: breathe 8s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { transform: scale(.78); } 50% { transform: scale(1); } }
+  h1 { font-size: clamp(2.6rem, 9vw, 6rem); line-height: 1.02; letter-spacing: -.035em; font-weight: 700; font-optical-sizing: auto; }
+  h1 span { display: block; color: var(--muted); }
+  .lede { margin: 1.25rem auto 2rem; max-width: 28ch; font-size: clamp(1.1rem, 2.4vw, 1.45rem); line-height: 1.3; color: var(--muted); }
+  .row { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
 
-  /* Draggable carousel */
-  .carousel { overflow: hidden; padding: 1rem 0 3rem; touch-action: pan-y; cursor: grab; }
+  .btn { appearance: none; border: 0; cursor: pointer; background: var(--accent); color: #fff; font-weight: 500;
+    padding: .8rem 1.6rem; border-radius: 999px; text-decoration: none; display: inline-block;
+    transition: transform 100ms ease-out, opacity 100ms; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  .btn:active { transform: scale(.96); opacity: .9; }
+  .btn.ghost { background: var(--glass); color: var(--text); border: 1px solid var(--line); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+
+  /* ---------- Reveal on scroll ---------- */
+  .reveal { opacity: 0; transform: translate3d(0, 28px, 0); filter: blur(6px);
+    transition: opacity .9s var(--ease), transform .9s var(--ease), filter .9s var(--ease); transition-delay: calc(var(--d, 0) * 90ms); }
+  .reveal.in { opacity: 1; transform: none; filter: none; }
+
+  section { padding: 5rem 0; }
+  .head { padding: 0 max(1.25rem, 5vw); max-width: 60rem; margin: 0 auto 2.5rem; }
+  .head h2 { font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.05; letter-spacing: -.03em; }
+  .head p { margin-top: .75rem; color: var(--muted); font-size: 1.15rem; max-width: 34ch; }
+
+  /* ---------- Carousel ---------- */
+  .carousel { overflow: hidden; padding: 1rem 0 2rem; touch-action: pan-y; cursor: grab; }
   .carousel:active { cursor: grabbing; }
-  .track { display: flex; gap: 1.25rem; padding: 0 max(1.25rem, 5vw); will-change: transform; width: max-content; }
-  .card {
-    width: min(78vw, 340px); aspect-ratio: 4 / 5; flex: none;
-    border-radius: 28px; padding: 1.75rem; background: var(--card);
-    box-shadow: var(--shadow);
-    display: flex; flex-direction: column; justify-content: flex-end;
-    user-select: none; -webkit-user-select: none;
-  }
-  .card .dot { width: 3rem; height: 3rem; border-radius: 50%; margin-bottom: auto; }
-  .card h2 { font-size: 1.6rem; letter-spacing: -0.02em; line-height: 1.1; }
-  .card p { margin-top: 0.4rem; color: var(--muted); font-size: 0.95rem; }
+  .track { display: flex; gap: 1.1rem; padding: 0 max(1.25rem, 5vw); width: max-content; will-change: transform; }
+  .card { width: min(76vw, 320px); aspect-ratio: 4/5; flex: none; border: 0; text-align: left; cursor: pointer;
+    border-radius: 30px; padding: 1.6rem; color: #fff; display: flex; flex-direction: column; justify-content: flex-end;
+    box-shadow: var(--shadow); user-select: none; -webkit-user-select: none; will-change: transform;
+    -webkit-tap-highlight-color: transparent; transition: filter 120ms; }
+  .card:active { filter: brightness(.94); }
+  .card svg { width: 100%; height: 56px; margin-bottom: auto; overflow: visible; }
+  .card path, .wave path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .card path { stroke: rgba(255,255,255,.9); stroke-width: 3; }
+  .card small { opacity: .8; font-size: .8rem; letter-spacing: .02em; }
+  .card h3 { font-size: 1.9rem; letter-spacing: -.025em; line-height: 1.1; margin: .2rem 0; }
+  .card p { opacity: .85; font-size: .95rem; }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; }
 
-  .hint { text-align: center; color: var(--muted); font-size: 0.85rem; padding-bottom: 5rem; }
+  /* ---------- Steps ---------- */
+  .steps { max-width: 60rem; margin: 0 auto; padding: 0 max(1.25rem, 5vw); display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .step { background: var(--card); border-radius: 28px; padding: 1.6rem; box-shadow: var(--shadow); }
+  .step .vis { height: 110px; display: grid; place-items: center; margin-bottom: 1.2rem; }
+  .step h3 { font-size: 1.25rem; letter-spacing: -.02em; }
+  .step p { color: var(--muted); margin-top: .35rem; font-size: .95rem; }
+  .step .orb-s { width: 78px; height: 78px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #bcd6ff 40%, #7aa7ff); animation: breathe 6s ease-in-out infinite; }
+  .step svg { width: 100%; height: 100%; }
+  .wave path { stroke: var(--accent); stroke-width: 3; }
+  .ringv circle { fill: none; stroke-width: 8; }
+  .ringv .t { stroke: var(--line); }
+  .ringv .g { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 251; stroke-dashoffset: 251; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 1.6s var(--ease) .3s; }
+  .step.in .ringv .g { stroke-dashoffset: 40; }
 
-  /* Sheet */
+  .final { text-align: center; padding: 4rem 1.25rem 7rem; }
+  .final h2 { font-size: clamp(2rem, 6vw, 3.5rem); letter-spacing: -.03em; margin-bottom: 1.5rem; }
+
+  /* ---------- Sheet ---------- */
   .scrim { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 20; }
-  .sheet {
-    position: fixed; left: 50%; bottom: 0; z-index: 30;
-    width: min(100%, 520px); margin-left: calc(min(100%, 520px) / -2);
-    padding: 0.75rem 1.5rem calc(2rem + env(safe-area-inset-bottom));
-    border-radius: 28px 28px 0 0;
-    background: var(--glass);
-    backdrop-filter: blur(30px) saturate(180%);
-    -webkit-backdrop-filter: blur(30px) saturate(180%);
-    border-top: 1px solid var(--glass-edge);
-    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.15);
-    transform: translateY(110%); will-change: transform; touch-action: none;
-  }
-  .grab { width: 2.4rem; height: 5px; border-radius: 3px; background: var(--muted); opacity: 0.5; margin: 0 auto 1.25rem; }
-  .sheet h3 { font-size: 1.5rem; letter-spacing: -0.02em; }
-  .sheet p { color: var(--muted); margin: 0.5rem 0 1.5rem; }
+  .sheet { position: fixed; left: 50%; bottom: 0; z-index: 30; width: min(100%, 520px); margin-left: calc(min(100%, 520px) / -2);
+    padding: .75rem 1.5rem calc(1.75rem + env(safe-area-inset-bottom)); border-radius: 30px 30px 0 0;
+    background: var(--glass); border-top: 1px solid var(--glass-edge);
+    backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%);
+    box-shadow: 0 -20px 50px rgba(0,0,0,.18); transform: translateY(110%); will-change: transform; touch-action: none; }
+  .grab { width: 2.4rem; height: 5px; border-radius: 3px; background: var(--muted); opacity: .5; margin: 0 auto 1.2rem; }
+  .sheet h3 { font-size: 1.7rem; letter-spacing: -.025em; line-height: 1.1; }
+  .sheet .tag { color: var(--muted); margin-top: .25rem; }
+  .wave { height: 90px; margin: 1.2rem 0 .4rem; }
+  .wave svg { width: 100%; height: 100%; overflow: visible; }
+  .pat { font-size: .85rem; color: var(--muted); margin-bottom: 1.2rem; font-variant-numeric: tabular-nums; }
+  .seg { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 12px; background: var(--line); margin-bottom: 1.2rem; }
+  .seg .thumb { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3); border-radius: 9px; background: var(--card);
+    box-shadow: 0 2px 8px rgba(0,0,0,.15); transition: transform .45s cubic-bezier(.3,1.35,.5,1); }
+  .seg button { position: relative; background: none; border: 0; padding: .5rem 0; cursor: pointer; font-size: .9rem; font-weight: 500; }
+  .sheet .btn { width: 100%; padding: .95rem; font-size: 1.05rem; }
 
+  /* ---------- Session stage ---------- */
+  .stage { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem max(2rem, env(safe-area-inset-bottom)); color: #fff; background: #08080c;
+    opacity: 0; visibility: hidden; transform: scale(1.04); filter: blur(14px);
+    transition: opacity .7s var(--ease), transform .7s var(--ease), filter .7s var(--ease), visibility 0s .7s; }
+  .stage.on { opacity: 1; visibility: visible; transform: none; filter: none; transition-delay: 0s; }
+  .stage::before { content: ""; position: absolute; inset: -20%; z-index: -1; opacity: var(--glow, .4);
+    background: radial-gradient(circle at 50% 45%, var(--c1), transparent 55%), radial-gradient(circle at 30% 80%, var(--c2), transparent 50%); }
+  .bar { width: 100%; max-width: 30rem; display: flex; justify-content: space-between; align-items: center; }
+  .bar span { opacity: .75; font-size: .95rem; }
+  .end { background: rgba(255,255,255,.14); border: 0; border-radius: 999px; padding: .5rem 1.1rem; cursor: pointer; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: transform 100ms; }
+  .end:active { transform: scale(.95); }
+  .orbwrap { --s: .45; position: relative; width: min(78vw, 340px); aspect-ratio: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .orbwrap > * { position: absolute; }
+  .orb, .halo { inset: 14%; border-radius: 50%; }
+  .orb { transform: scale(var(--s)); background: radial-gradient(circle at 35% 30%, #fff, var(--c1) 55%, var(--c2)); box-shadow: 0 0 80px var(--c1); }
+  .halo.h1 { transform: scale(calc(var(--s) * 1.18)); background: var(--c1); opacity: .22; }
+  .halo.h2 { transform: scale(calc(var(--s) * 1.4)); background: var(--c2); opacity: .12; }
+  .ring { inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 3; }
+  .ring .t { stroke: rgba(255,255,255,.12); }
+  .ring .p { stroke: #fff; stroke-linecap: round; stroke-dasharray: 967.6; stroke-dashoffset: 967.6; opacity: .9; }
+  .read { inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,.45), 0 2px 24px rgba(0,0,0,.5); }
+  .read #num { font-size: 3.4rem; font-weight: 300; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; min-height: 3.4rem; }
+  .read #phase { font-size: 1.15rem; font-weight: 500; letter-spacing: .02em; margin-top: .3rem; }
+  .foot { opacity: .7; font-size: .9rem; text-align: center; min-height: 1.4rem; }
+  .stage.done .orbwrap { transition: --s 1.4s var(--ease); }
+  .stage.paused .orb { opacity: .6; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .blob, .mini-orb, .step .orb-s { animation: none; }
+    .hero-inner { transform: none; opacity: 1; }
+    .reveal { opacity: 1; transform: none; filter: none; transition: none; }
+    .stage { transform: none; filter: none; transition: opacity .3s; }
+  }
   @media (prefers-reduced-transparency: reduce) {
-    nav, .sheet { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
+    nav, .sheet, .btn.ghost { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
   }
-  @media (prefers-contrast: more) {
-    nav, .sheet { background: var(--card); border-color: var(--text); }
-  }
+  @media (prefers-contrast: more) { nav, .sheet { background: var(--card); border-color: var(--text); } }
 </style>
 </head>
 <body>
 
-<nav><b>Calm</b><span>Breathe</span></nav>
+<nav><b>Calm</b><a href="#sessions">Sessions</a></nav>
 
-<header>
-  <h1>Slow down.<br>Feel it.</h1>
-  <p>Interfaces that move the way you think.</p>
-  <button class="btn" id="open">Begin</button>
+<header class="hero" id="hero">
+  <div class="blob a"></div><div class="blob b"></div><div class="blob c"></div>
+  <div class="hero-inner">
+    <div class="mini-orb" aria-hidden="true"></div>
+    <h1>Breathe.<span>Everything else can wait.</span></h1>
+    <p class="lede">Guided breathing that moves with you. Follow the orb for one minute.</p>
+    <div class="row">
+      <button class="btn" id="quick">Start 1 minute</button>
+      <a class="btn ghost" href="#sessions">Choose a session</a>
+    </div>
+  </div>
 </header>
 
-<div class="carousel" id="carousel">
-  <div class="track" id="track">
-    <div class="card"><div class="dot" style="background:#ff9f0a"></div><h2>Morning</h2><p>Start gently, with light.</p></div>
-    <div class="card"><div class="dot" style="background:#30d158"></div><h2>Focus</h2><p>One thing at a time.</p></div>
-    <div class="card"><div class="dot" style="background:#0a84ff"></div><h2>Evening</h2><p>Let the day settle.</p></div>
-    <div class="card"><div class="dot" style="background:#bf5af2"></div><h2>Sleep</h2><p>Quiet, dark, still.</p></div>
+<section id="sessions">
+  <div class="head reveal">
+    <h2>Pick a moment.</h2>
+    <p>Each session is a different rhythm. Tap one to preview its pattern.</p>
   </div>
+  <div class="carousel reveal" id="carousel" style="--d:1"><div class="track" id="track"></div></div>
+  <p class="hint">Drag the cards. Flick them. Grab one mid-flight.</p>
+</section>
+
+<section>
+  <div class="head reveal"><h2>How it works.</h2><p>Three things happen when you start.</p></div>
+  <div class="steps">
+    <div class="step reveal" style="--d:0">
+      <div class="vis"><div class="orb-s"></div></div>
+      <h3>Follow the orb</h3>
+      <p>It grows as you breathe in and shrinks as you breathe out. Match it.</p>
+    </div>
+    <div class="step reveal" style="--d:1">
+      <div class="vis"><div class="wave" style="width:100%;height:70px;margin:0"><svg id="stepWave" viewBox="0 0 240 70" preserveAspectRatio="none"><path/></svg></div></div>
+      <h3>Find the rhythm</h3>
+      <p>Every session is a pattern of inhale, hold and exhale. Longer exhales slow you down.</p>
+    </div>
+    <div class="step reveal" style="--d:2">
+      <div class="vis"><svg class="ringv" viewBox="0 0 100 100" width="100" height="100"><circle class="t" cx="50" cy="50" r="40"/><circle class="g" cx="50" cy="50" r="40"/></svg></div>
+      <h3>Watch it fill</h3>
+      <p>The ring around the orb tracks your whole session, so you always know how far along you are.</p>
+    </div>
+  </div>
+</section>
+
+<div class="final reveal">
+  <h2>One minute is enough.</h2>
+  <button class="btn" id="quick2">Start breathing</button>
 </div>
-<p class="hint">Drag the cards. Flick them. Grab one mid-flight.</p>
 
 <div class="scrim" id="scrim"></div>
-<div class="sheet" id="sheet" role="dialog" aria-label="Begin">
+<div class="sheet" id="sheet" role="dialog" aria-label="Session details">
   <div class="grab"></div>
-  <h3>Ready when you are</h3>
-  <p>Drag this sheet down to dismiss, or flick it away.</p>
-  <button class="btn" id="close">Done</button>
+  <h3 id="shName"></h3><p class="tag" id="shTag"></p>
+  <div class="wave"><svg viewBox="0 0 300 90" preserveAspectRatio="none"><path id="shWave" stroke-width="3.5"/></svg></div>
+  <p class="pat" id="shPat"></p>
+  <div class="seg" id="seg"><div class="thumb"></div>
+    <button data-m="1">1 min</button><button data-m="2">2 min</button><button data-m="3">3 min</button>
+  </div>
+  <button class="btn" id="go">Begin</button>
+</div>
+
+<div class="stage" id="stage" role="dialog" aria-label="Breathing session" aria-hidden="true">
+  <div class="bar"><button class="end" id="end">End</button><span id="sName"></span></div>
+  <div class="orbwrap" id="orbwrap">
+    <div class="halo h2"></div><div class="halo h1"></div><div class="orb"></div>
+    <svg class="ring" viewBox="0 0 320 320"><circle class="t" cx="160" cy="160" r="154"/><circle class="p" id="prg" cx="160" cy="160" r="154"/></svg>
+    <div class="read"><div id="num"></div><div id="phase"></div></div>
+  </div>
+  <div class="foot" id="foot"></div>
 </div>
 
 <script>
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
 
-/* Spring with Apple-style params: damping ratio + response (seconds). Starts from the live value + velocity. */
+/* ---------- Data: pattern = [inhale, hold, exhale, rest] seconds ---------- */
+const SESSIONS = [
+  { id: 'morning', name: 'Morning', tag: 'Wake up gently',      pattern: [4, 2, 4, 0], c1: '#ffb347', c2: '#ff5e7e' },
+  { id: 'focus',   name: 'Focus',   tag: 'Box breathing',       pattern: [4, 4, 4, 4], c1: '#34d3a0', c2: '#0ea5e9' },
+  { id: 'evening', name: 'Evening', tag: 'Let the day settle',  pattern: [4, 2, 6, 0], c1: '#818cf8', c2: '#c084fc' },
+  { id: 'sleep',   name: 'Sleep',   tag: '4-7-8 to drift off',  pattern: [4, 7, 8, 0], c1: '#6d5bd0', c2: '#2a1f6b' },
+];
+const PHASES = [['Inhale', 0, 1], ['Hold', 1, 1], ['Exhale', 1, 0], ['Rest', 0, 0]];
+const phasesOf = p => p.map((s, i) => s && { name: PHASES[i][0], secs: s, from: PHASES[i][1], to: PHASES[i][2] }).filter(Boolean);
+const ease = p => (1 - Math.cos(Math.PI * p)) / 2;
+
+/* Breath level (0 empty … 1 full) at time t inside one cycle; shared by the orb and every waveform */
+function level(phases, t) {
+  for (const ph of phases) { if (t < ph.secs) return ph.from + (ph.to - ph.from) * ease(t / ph.secs); t -= ph.secs; }
+  return 0;
+}
+function wavePath(pattern, w, h, pad = 6) {
+  const ph = phasesOf(pattern), len = ph.reduce((a, b) => a + b.secs, 0), n = 90;
+  return Array.from({ length: n + 1 }, (_, i) => {
+    const x = (i / n) * w, y = h - pad - level(ph, (i / n) * len) * (h - pad * 2);
+    return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+  }).join('');
+}
+const draw = path => !reduced && path.animate([{ strokeDasharray: '1', strokeDashoffset: '1' }, { strokeDasharray: '1', strokeDashoffset: '0' }],
+  { duration: 1100, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+
+/* ---------- Springs (damping ratio + response, Apple-style) ---------- */
 function Spring(value, apply) {
-  let x = value, v = 0, target = value, raf = 0, last = 0, cfg = { damping: 1, response: 0.4 };
+  let x = value, v = 0, target = value, raf = 0, last = 0, cfg = { damping: 1, response: .4 };
   function step(t) {
-    const dt = Math.min((t - last) / 1000, 0.032); last = t;
+    const dt = Math.min((t - last) / 1000, .032); last = t;
     const w = 2 * Math.PI / cfg.response, k = w * w, c = 2 * cfg.damping * w;
-    for (let i = 0; i < 4; i++) {
-      v += (-k * (x - target) - c * v) * (dt / 4);
-      x += v * (dt / 4);
-    }
+    for (let i = 0; i < 4; i++) { v += (-k * (x - target) - c * v) * (dt / 4); x += v * (dt / 4); }
     apply(x);
-    if (Math.abs(v) < 0.02 && Math.abs(x - target) < 0.05) { x = target; v = 0; apply(x); raf = 0; return; }
+    if (Math.abs(v) < .02 && Math.abs(x - target) < .05) { x = target; v = 0; apply(x); raf = 0; return; }
     raf = requestAnimationFrame(step);
   }
   return {
     get value() { return x; },
-    set(val) { cancelAnimationFrame(raf); raf = 0; x = val; v = 0; apply(x); },   // 1:1 tracking
-    to(t, o = {}) {                                                                // animate from current value
-      target = t; v = o.velocity ?? v; cfg = { damping: o.damping ?? 1, response: o.response ?? 0.4 };
+    set(val) { cancelAnimationFrame(raf); raf = 0; x = val; v = 0; apply(x); },
+    to(t, o = {}) {
+      target = t; v = o.velocity ?? v; cfg = { damping: o.damping ?? 1, response: o.response ?? .4 };
       if (reduced) { x = t; v = 0; apply(x); return; }
       if (!raf) { last = performance.now(); raf = requestAnimationFrame(step); }
     },
-    stop() { cancelAnimationFrame(raf); raf = 0; v = 0; target = x; }              // grabbing mid-flight
+    stop() { cancelAnimationFrame(raf); raf = 0; v = 0; target = x; }
   };
 }
-
-/* Momentum projection (Apple's formula) */
-const project = (v, d = 0.998) => (v / 1000) * d / (1 - d);
-
-/* Soft boundary */
-const rubber = (over, dim, c = 0.55) => (over * dim * c) / (dim + c * Math.abs(over));
-
-/* Velocity from the last few pointer samples */
+const project = (v, d = .998) => (v / 1000) * d / (1 - d);
+const rubber = (o, dim, c = .55) => (o * dim * c) / (dim + c * Math.abs(o));
 function tracker() {
   let s = [];
-  return {
-    reset() { s = []; },
-    add(p) { const t = performance.now(); s.push([p, t]); s = s.filter(a => t - a[1] < 100); },
-    get v() { if (s.length < 2) return 0; const a = s[0], b = s[s.length - 1]; return b[1] === a[1] ? 0 : (b[0] - a[0]) / ((b[1] - a[1]) / 1000); }
-  };
+  return { reset() { s = []; }, add(p) { const t = performance.now(); s.push([p, t]); s = s.filter(a => t - a[1] < 100); },
+    get v() { if (s.length < 2) return 0; const a = s[0], b = s.at(-1); return b[1] === a[1] ? 0 : (b[0] - a[0]) / ((b[1] - a[1]) / 1000); } };
 }
 
-/* ---------- Carousel ---------- */
-(() => {
-  const el = document.getElementById('carousel'), track = document.getElementById('track');
-  const spring = Spring(0, x => track.style.transform = `translate3d(${x}px,0,0)`);
-  const vt = tracker();
-  let min = 0, startX = 0, startPos = 0, id = null, dragging = false, decided = false, startY = 0;
-  const bounds = () => { min = Math.min(0, el.clientWidth - track.scrollWidth); };
-  const snaps = () => {
-    const pad = parseFloat(getComputedStyle(track).paddingLeft);
-    return [...track.children].map(c => Math.max(min, Math.min(0, -(c.offsetLeft - pad))));
-  };
-  addEventListener('resize', bounds); bounds();
+/* ---------- Cards ---------- */
+const track = $('track');
+SESSIONS.forEach(s => {
+  const b = document.createElement('button');
+  b.className = 'card'; b.dataset.id = s.id;
+  b.style.background = `linear-gradient(150deg, ${s.c1}, ${s.c2})`;
+  b.innerHTML = `<svg viewBox="0 0 200 56" preserveAspectRatio="none"><path d="${wavePath(s.pattern, 200, 56, 4)}"/></svg>
+    <small>${s.pattern.filter(Boolean).join(' · ')} sec</small><h3>${s.name}</h3><p>${s.tag}</p>`;
+  track.append(b);
+});
+document.getElementById('stepWave').firstElementChild.setAttribute('d', wavePath(SESSIONS[1].pattern, 240, 70, 6));
 
-  el.addEventListener('pointerdown', e => {
-    id = e.pointerId; startX = e.clientX; startY = e.clientY; decided = false; dragging = false;
-    spring.stop(); startPos = spring.value; vt.reset(); vt.add(e.clientX);   // grab mid-flight, from the live value
+/* ---------- Scroll: reveals + hero parallax ---------- */
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) {
+  e.target.classList.add('in'); io.unobserve(e.target);
+  e.target.querySelectorAll('#stepWave path').forEach(draw);
+} }), { threshold: .2 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+const hero = $('hero');
+let tick = false;
+addEventListener('scroll', () => { if (tick || reduced) return; tick = true; requestAnimationFrame(() => {
+  hero.style.setProperty('--p', Math.min(1, scrollY / (innerHeight * .8)).toFixed(3)); tick = false; }); }, { passive: true });
+
+/* ---------- Carousel: drag, momentum, rubber-band, scale toward center ---------- */
+(() => {
+  const el = $('carousel'), cards = [...track.children], vt = tracker();
+  let min = 0, startX = 0, startY = 0, startPos = 0, id = null, dragging = false, decided = false, moved = false, centers = [];
+  const layout = () => { min = Math.min(0, el.clientWidth - track.scrollWidth); centers = cards.map(c => c.offsetLeft + c.offsetWidth / 2); };
+  const spring = Spring(0, x => {
+    track.style.transform = `translate3d(${x}px,0,0)`;
+    const mid = el.clientWidth / 2;
+    cards.forEach((c, i) => { const d = Math.min(1, Math.abs(x + centers[i] - mid) / el.clientWidth);
+      c.style.transform = `scale(${1 - .09 * d})`; c.style.opacity = 1 - .35 * d; });
   });
+  const snaps = () => { const pad = parseFloat(getComputedStyle(track).paddingLeft); return cards.map(c => Math.max(min, Math.min(0, -(c.offsetLeft - pad)))); };
+  addEventListener('resize', () => { layout(); spring.set(spring.value); }); layout(); spring.set(0);
+
+  el.addEventListener('pointerdown', e => { id = e.pointerId; startX = e.clientX; startY = e.clientY; decided = dragging = moved = false;
+    spring.stop(); startPos = spring.value; vt.reset(); vt.add(e.clientX); });
   el.addEventListener('pointermove', e => {
     if (e.pointerId !== id) return;
     const dx = e.clientX - startX;
-    if (!decided) {                                   // ~10px hysteresis before committing direction
-      if (Math.hypot(dx, e.clientY - startY) < 10) return;
-      decided = true; dragging = Math.abs(dx) > Math.abs(e.clientY - startY);
-      if (dragging) el.setPointerCapture(id);
-    }
+    if (!decided) { if (Math.hypot(dx, e.clientY - startY) < 10) return;
+      decided = true; dragging = Math.abs(dx) > Math.abs(e.clientY - startY); if (dragging) { moved = true; el.setPointerCapture(id); } }
     if (!dragging) return;
     vt.add(e.clientX);
     let p = startPos + dx;
-    if (p > 0) p = rubber(p, el.clientWidth);         // rubber-band at edges
-    else if (p < min) p = min - rubber(min - p, el.clientWidth);
+    if (p > 0) p = rubber(p, el.clientWidth); else if (p < min) p = min - rubber(min - p, el.clientWidth);
     spring.set(p);
   });
-  const end = e => {
-    if (e.pointerId !== id) return; id = null;
-    if (!dragging) return;
-    const v = vt.v, landing = spring.value + project(v);          // where the flick is heading
-    const target = snaps().reduce((a, b) => Math.abs(b - landing) < Math.abs(a - landing) ? b : a);
-    spring.to(target, { velocity: v, damping: 0.8, response: 0.5 }); // bounce only because momentum existed
-  };
+  const end = e => { if (e.pointerId !== id) return; id = null; if (!dragging) return;
+    const v = vt.v, landing = spring.value + project(v), t = snaps().reduce((a, b) => Math.abs(b - landing) < Math.abs(a - landing) ? b : a);
+    spring.to(t, { velocity: v, damping: .8, response: .5 }); };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  track.addEventListener('click', e => { const c = e.target.closest('.card'); if (c && !moved) openSheet(SESSIONS.find(s => s.id === c.dataset.id)); });
 })();
 
 /* ---------- Sheet ---------- */
+let current = SESSIONS[1], mins = 2;
+const sheet = $('sheet'), scrim = $('scrim');
+const H = () => sheet.offsetHeight + 40;
+const sheetSpring = Spring(1e4, y => {
+  sheet.style.transform = `translate3d(0,${y}px,0)`;
+  const o = Math.max(0, Math.min(1, 1 - y / H()));
+  scrim.style.opacity = o * .35; scrim.style.pointerEvents = o > .05 ? 'auto' : 'none';
+});
+const setMins = m => { mins = m; $('seg').querySelector('.thumb').style.transform = `translateX(${(m - 1) * 100}%)`; };
+function openSheet(s) {
+  current = s;
+  $('shName').textContent = s.name; $('shTag').textContent = s.tag;
+  $('shPat').textContent = PHASES.map((p, i) => s.pattern[i] ? `${p[0]} ${s.pattern[i]}` : '').filter(Boolean).join('  ·  ');
+  const w = $('shWave'); w.setAttribute('d', wavePath(s.pattern, 300, 90, 6)); w.style.stroke = s.c1;
+  $('go').style.background = `linear-gradient(135deg, ${s.c1}, ${s.c2})`;
+  setMins(mins);
+  if (sheetSpring.value > H()) sheetSpring.set(H());
+  sheetSpring.to(0, { damping: .8, response: .4 }); draw(w);
+}
+const closeSheet = (v = 0) => sheetSpring.to(H() + 20, { velocity: v, damping: 1, response: .4 });
+$('seg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setMins(+b.dataset.m); });
+scrim.onclick = () => closeSheet();
 (() => {
-  const sheet = document.getElementById('sheet'), scrim = document.getElementById('scrim');
-  const H = () => sheet.offsetHeight + 40;
-  const spring = Spring(1e4, y => {
-    sheet.style.transform = `translate3d(0,${y}px,0)`;
-    const open = Math.max(0, Math.min(1, 1 - y / H()));
-    scrim.style.opacity = open * 0.3;
-    scrim.style.pointerEvents = open > 0.05 ? 'auto' : 'none';
-  });
-  const vt = tracker();
-  let startY = 0, startPos = 0, id = null;
-  const open = () => { if (spring.value > H()) spring.set(H()); spring.to(0, { damping: 0.8, response: 0.4 }); };
-  const close = (v = 0) => spring.to(H() + 20, { velocity: v, damping: 1, response: 0.4 });  // exits the way it came in
-
-  document.getElementById('open').onclick = open;
-  document.getElementById('close').onclick = () => close();
-  scrim.onclick = () => close();
-  addEventListener('keydown', e => e.key === 'Escape' && close());
-
-  sheet.addEventListener('pointerdown', e => {
-    if (e.target.closest('button')) return;
-    id = e.pointerId; sheet.setPointerCapture(id);
-    spring.stop(); startY = e.clientY; startPos = spring.value; vt.reset(); vt.add(e.clientY);
-  });
-  sheet.addEventListener('pointermove', e => {
-    if (e.pointerId !== id) return;
-    vt.add(e.clientY);
-    const p = startPos + (e.clientY - startY);
-    spring.set(p < 0 ? -rubber(-p, 300) : p);         // resist dragging upward
-  });
-  const end = e => {
-    if (e.pointerId !== id) return; id = null;
-    const v = vt.v, landing = spring.value + project(v, 0.99);
-    landing > H() / 2 ? close(v) : spring.to(0, { velocity: v, damping: 0.8, response: 0.4 });
-  };
+  const vt = tracker(); let id = null, sy = 0, sp = 0;
+  sheet.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; id = e.pointerId; sheet.setPointerCapture(id);
+    sheetSpring.stop(); sy = e.clientY; sp = sheetSpring.value; vt.reset(); vt.add(e.clientY); });
+  sheet.addEventListener('pointermove', e => { if (e.pointerId !== id) return; vt.add(e.clientY);
+    const p = sp + (e.clientY - sy); sheetSpring.set(p < 0 ? -rubber(-p, 300) : p); });
+  const end = e => { if (e.pointerId !== id) return; id = null; const v = vt.v;
+    sheetSpring.value + project(v, .99) > H() / 2 ? closeSheet(v) : sheetSpring.to(0, { velocity: v, damping: .8, response: .4 }); };
   sheet.addEventListener('pointerup', end); sheet.addEventListener('pointercancel', end);
-  addEventListener('resize', () => { if (spring.value > 0) spring.set(H() + 20); });
-  spring.set(H() + 20);
+  sheetSpring.set(H() + 20);
 })();
+
+/* ---------- Breathing session ---------- */
+const stage = $('stage'), wrap = $('orbwrap'), prg = $('prg'), CIRC = 967.6, INTRO = 2, BASE = reduced ? .82 : .45;
+let S = null;
+function startSession(s, m) {
+  const phases = phasesOf(s.pattern), cycleLen = phases.reduce((a, b) => a + b.secs, 0), cycles = Math.max(1, Math.round(m * 60 / cycleLen));
+  S = { s, m, phases, cycleLen, cycles, total: cycles * cycleLen, t: -INTRO, last: performance.now(), idx: -2, paused: false, raf: 0 };
+  stage.style.setProperty('--c1', s.c1); stage.style.setProperty('--c2', s.c2);
+  stage.classList.remove('done', 'paused'); stage.classList.add('on'); stage.setAttribute('aria-hidden', 'false');
+  $('sName').textContent = `${s.name} · ${m} min`; $('end').textContent = 'End';
+  closeSheet(); S.raf = requestAnimationFrame(frame);
+}
+function label(text) { const p = $('phase'); p.textContent = text; !reduced && p.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 450, easing: 'ease-out' }); }
+function frame(now) {
+  const dt = Math.min((now - S.last) / 1000, .05); S.last = now;
+  if (!S.paused) S.t += dt;
+  if (S.t >= S.total) return finish();
+  let idx, num = '', lvl = 0;
+  if (S.t < 0) { idx = -1; num = Math.ceil(-S.t); }
+  else {
+    let ct = S.t % S.cycleLen; idx = 0;
+    for (const ph of S.phases) { if (ct < ph.secs) { num = Math.ceil(ph.secs - ct); lvl = ph.from + (ph.to - ph.from) * ease(ct / ph.secs); break; } ct -= ph.secs; idx++; }
+  }
+  if (idx !== S.idx) { S.idx = idx; label(idx < 0 ? 'Get comfortable' : S.phases[idx % S.phases.length].name); if (idx >= 0) navigator.vibrate?.(12); }
+  wrap.style.setProperty('--s', (BASE + (1 - BASE) * lvl).toFixed(4));
+  stage.style.setProperty('--glow', (.3 + .5 * lvl).toFixed(3));
+  prg.style.strokeDashoffset = CIRC * (1 - Math.max(0, S.t) / S.total);
+  $('num').textContent = num;
+  $('foot').textContent = S.paused ? 'Paused · tap the orb to resume' : S.t < 0 ? 'Sit back and relax' : `Cycle ${Math.floor(S.t / S.cycleLen) + 1} of ${S.cycles}`;
+  S.raf = requestAnimationFrame(frame);
+}
+function finish() {
+  stage.classList.add('done'); wrap.style.setProperty('--s', .75); stage.style.setProperty('--glow', .55);
+  prg.style.strokeDashoffset = 0; $('num').textContent = '✓'; label('Well done');
+  $('foot').textContent = `${S.m} min of ${S.s.name}`; $('end').textContent = 'Done'; navigator.vibrate?.([20, 60, 20]);
+  S.raf = 0; S.finished = true;
+}
+function endSession() { if (!S) return; cancelAnimationFrame(S.raf); stage.classList.remove('on'); stage.setAttribute('aria-hidden', 'true'); S = null; }
+wrap.addEventListener('click', () => { if (!S || S.finished) return; S.paused = !S.paused; stage.classList.toggle('paused', S.paused); });
+$('end').onclick = endSession;
+addEventListener('keydown', e => { if (e.key !== 'Escape') return; S ? endSession() : closeSheet(); });
+$('go').onclick = () => startSession(current, mins);
+$('quick').onclick = $('quick2').onclick = () => startSession(SESSIONS[1], 1);
 </script>
 </body>
 </html>
