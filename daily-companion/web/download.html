@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Install Daily Companion</title>
+  <meta name="description" content="Install Daily Companion on your phone — your personal coach and daily companion." />
+  <meta name="theme-color" content="#0A1310" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    .dl { max-width: 460px; margin: 0 auto; padding: calc(var(--safe-t) + 28px) 18px calc(var(--safe-b) + 32px); }
+    .dl .hero-icon { width: 108px; height: 108px; border-radius: 26px; margin: 0 auto 18px; box-shadow: var(--shadow); }
+    .dl h1 { font-size: 30px; font-weight: 780; letter-spacing: -0.02em; text-align: center; }
+    .dl .lead { text-align: center; color: var(--text-2); margin: 8px 0 24px; }
+    .feat { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
+    .feat div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; font-size: 14px; color: var(--text-2); }
+    .feat b { display: block; color: var(--text); font-size: 15px; margin-bottom: 2px; }
+    .platform { display: none; }
+    .platform.show { display: block; }
+  </style>
+  <script>
+    try {
+      var th = localStorage.getItem('dc.theme') || 'dark';
+      if (th === 'system') th = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.dataset.theme = th === 'light' ? 'light' : 'dark';
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <main class="dl">
+    <img class="hero-icon" src="icons/icon-192.png" alt="" width="108" height="108" />
+    <h1>Daily Companion</h1>
+    <p class="lead">Your personal coach: daily plan, quests, food, workouts, sleep, and honest check-ins.</p>
+
+    <!-- Already installed / opened from the Home Screen -->
+    <section class="platform card" id="p-installed">
+      <p class="bold">You're using the installed app.</p>
+      <a class="btn primary block mt-12" href="./#/today">Open Daily Companion</a>
+    </section>
+
+    <!-- Android & desktop Chrome/Edge: one tap -->
+    <section class="platform card" id="p-onetap">
+      <button class="btn primary block" id="installBtn">⬇︎ Install app</button>
+      <p class="faint small center mt-8">Adds it to your home screen. Free, no app store.</p>
+    </section>
+
+    <!-- iPhone / iPad in Safari -->
+    <section class="platform card" id="p-ios">
+      <h2 class="bold mb-8">Install on iPhone</h2>
+      <ol class="steps-list">
+        <li><span>Tap the <b>Share</b> button
+          <svg class="ios-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V3M8 7l4-4 4 4M7 10H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1"/></svg>
+          at the bottom of Safari (top on iPad).</span></li>
+        <li><span>Scroll down and tap <b>Add to Home Screen</b>.</span></li>
+        <li><span>Tap <b>Add</b>. Then open <b>Companion</b> from your Home Screen — notifications only work from there.</span></li>
+      </ol>
+      <p class="faint small mt-8">Needs iOS 16.4 or newer for notifications.</p>
+    </section>
+
+    <!-- iPhone in another browser (Chrome, Firefox, …) -->
+    <section class="platform card" id="p-ios-other">
+      <h2 class="bold mb-8">Install on iPhone</h2>
+      <p class="muted mb-8">Easiest in <b>Safari</b>: copy this page's link and open it in Safari, then follow the steps. (Recent Chrome versions also show <b>Add to Home Screen</b> in their Share menu.)</p>
+      <button class="btn block" id="copyBtn">Copy link</button>
+    </section>
+
+    <!-- Android without the one-tap prompt (e.g. Firefox, Samsung Internet) -->
+    <section class="platform card" id="p-android">
+      <h2 class="bold mb-8">Install on Android</h2>
+      <ol class="steps-list">
+        <li><span>Open the browser menu <b>⋮</b>.</span></li>
+        <li><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li>
+      </ol>
+    </section>
+
+    <!-- Desktop -->
+    <section class="platform card" id="p-desktop">
+      <h2 class="bold mb-8">Open on your phone</h2>
+      <p class="muted">Daily Companion is made for your phone. Open this address on it:</p>
+      <div class="copy-box mt-12"><code id="url"></code><button class="btn small" id="copyBtn2">Copy</button></div>
+      <p class="faint small mt-12">On a computer you can also install it from the address bar's install icon, or just <a href="./#/today">open it in the browser</a>.</p>
+    </section>
+
+    <div class="feat">
+      <div><b>📅 Daily plan</b>Built around short days, long days and exams.</div>
+      <div><b>💬 Coach</b>Short, honest texts at the right time.</div>
+      <div><b>⚡ Quests</b>XP, levels and streaks.</div>
+      <div><b>📴 Offline</b>Works without signal, syncs later.</div>
+    </div>
+    <p class="center mt-24"><a href="./#/today">Continue in the browser →</a></p>
+  </main>
+
+  <script>
+    (function () {
+      var ua = navigator.userAgent;
+      var iOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var android = /Android/.test(ua);
+      var iosSafari = iOS && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA/.test(ua);
+      var standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      var deferred = null;
+      function show(id) {
+        document.querySelectorAll('.platform').forEach(function (el) { el.classList.toggle('show', el.id === id); });
+      }
+      function fallback() {
+        if (standalone) return show('p-installed');
+        if (iOS) return show(iosSafari ? 'p-ios' : 'p-ios-other');
+        if (android) return show('p-android');
+        show('p-desktop');
+      }
+      fallback();
+      document.getElementById('url').textContent = location.origin + '/download';
+
+      // Chrome/Edge (Android + desktop): real one-tap install.
+      addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferred = e;
+        if (!standalone) show('p-onetap');
+      });
+      addEventListener('appinstalled', function () { show('p-installed'); });
+      document.getElementById('installBtn').addEventListener('click', function () {
+        if (!deferred) return fallback();
+        deferred.prompt();
+        deferred.userChoice.then(function (c) { deferred = null; if (c.outcome !== 'accepted') fallback(); });
+      });
+      function copy(btn) {
+        var link = location.origin + '/download';
+        (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function () {
+          btn.textContent = 'Copied ✓';
+        }, function () { prompt('Copy this link:', link); });
+      }
+      document.getElementById('copyBtn').addEventListener('click', function () { copy(this); });
+      document.getElementById('copyBtn2').addEventListener('click', function () { copy(this); });
+
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+    })();
+  </script>
+</body>
+</html>

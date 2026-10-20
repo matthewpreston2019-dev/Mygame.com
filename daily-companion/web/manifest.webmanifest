@@ -1,0 +1,25 @@
+{
+  "name": "Daily Companion",
+  "short_name": "Companion",
+  "description": "Your personal coach and daily companion: plans, quests, food, workouts, sleep.",
+  "id": "/",
+  "start_url": "/#/today",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A1310",
+  "theme_color": "#0A1310",
+  "categories": ["health", "fitness", "education", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Log food", "url": "/#/track/food", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Start workout", "url": "/#/track/workout", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Coach", "url": "/#/coach", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

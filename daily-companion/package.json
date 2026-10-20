@@ -1,0 +1,11 @@
+{
+  "name": "daily-companion",
+  "private": true,
+  "description": "Daily Companion 2.0 — personal coach PWA. No dependencies: these scripts are for checks only.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/unit.test.mjs && node tests/check-i18n.mjs",
+    "serve": "node scripts/build.mjs && npx --yes serve@14 dist -l 8080"
+  }
+}
