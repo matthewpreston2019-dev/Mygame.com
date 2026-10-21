@@ -16,7 +16,7 @@
   --line-2: rgba(196, 221, 186, 0.16);
   --text: #E8F0E9;
   --text-2: #A7B8AB;
-  --text-3: #839586; /* ≥ 4.5:1 on cards (WCAG AA for small text) */
+  --text-3: #839586; /* ≥ 4.5:1 on --bg, --card and --card-2 (WCAG AA for small text) */
   --pine: #2C6A4A;
   --pine-2: #3A8660;
   --sage: #9CC495;
