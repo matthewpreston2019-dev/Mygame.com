@@ -2,8 +2,8 @@
 // gym days, weekend times and the evening routine.
 import { html, useState } from '../../lib/preact.js';
 import * as store from '../../lib/store.js';
-import { t, fmtDate } from '../../lib/i18n.js';
-import { isHHMM } from '../../shared/time.js';
+import { t, fmtDate, ltr } from '../../lib/i18n.js';
+import { isHHMM, toMinutes, toHHMM } from '../../shared/time.js';
 import { templateName } from '../../shared/names.js';
 import { SheetFrame, Seg, Field } from '../../components/common.js';
 import { openSheet, toast } from '../../lib/ui.js';
@@ -52,6 +52,16 @@ function ScheduleSheet({ close }) {
     const e = {};
     const times = [['freeFrom', 'short'], ['freeFrom', 'long'], ['schoolStart'], ['weekendStudyAt'], ['weekendGymAt'], ['checkinAt'], ['windDownAt'], ['lightsOut'], ['wakeAt']];
     for (const p of times) if (!isHHMM(p.reduce((o, k) => o?.[k], d))) e[p.join('.')] = t('validate.time');
+    // Check-in and wind-down belong to the same evening, after school. A time
+    // after midnight (e.g. 00:15) would count as early morning: the plan would
+    // then end the afternoon at 00:15 and drop your study and gym blocks.
+    // Lights out may still be after midnight (e.g. 00:30).
+    const freeEnd = Math.max(toMinutes(d.freeFrom?.short), toMinutes(d.freeFrom?.long));
+    if (Number.isFinite(freeEnd)) {
+      const msg = t('schedule.eveningAfter', { time: ltr(toHHMM(freeEnd)) });
+      if (!e.checkinAt && toMinutes(d.checkinAt) <= freeEnd) e.checkinAt = msg;
+      if (!e.windDownAt && toMinutes(d.windDownAt) <= freeEnd) e.windDownAt = msg;
+    }
     const mins = [[['relaxMin', 'short'], 240], [['relaxMin', 'long'], 240], [['gymMin'], 240], [['afterGymMin'], 180],
       [['studyMin', 'short'], 600], [['studyMin', 'long'], 600], [['studyMin', 'weekend'], 600]];
     const out = JSON.parse(JSON.stringify(d));

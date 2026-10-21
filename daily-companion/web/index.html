@@ -12,6 +12,9 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <!-- White status bar text over the page. iOS reads this only at launch, so it
+       stays the same for both themes; app.css paints a dark strip behind the
+       status bar in the light theme so the white clock/battery stay readable. -->
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Companion" />
   <meta name="format-detection" content="telephone=no" />

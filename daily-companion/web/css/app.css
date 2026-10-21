@@ -16,7 +16,7 @@
   --line-2: rgba(196, 221, 186, 0.16);
   --text: #E8F0E9;
   --text-2: #A7B8AB;
-  --text-3: #728676;
+  --text-3: #839586; /* ≥ 4.5:1 on cards (WCAG AA for small text) */
   --pine: #2C6A4A;
   --pine-2: #3A8660;
   --sage: #9CC495;
@@ -24,9 +24,11 @@
   --sage-dim: rgba(156, 196, 149, 0.14);
   --gold: #E3B451;
   --gold-2: #F2CB6B;
-  --gold-ink: #241A05;
+  --gold-ink: #241A05; /* text on a gold background */
+  --gold-text: var(--gold); /* gold used as a text colour (darker in light theme) */
   --gold-dim: rgba(227, 180, 81, 0.15);
   --danger: #E8806E;
+  --danger-ink: #2A0E08; /* text on a danger background (badge counts) */
   --danger-dim: rgba(232, 128, 110, 0.14);
   --info: #86B7DB;
   --info-dim: rgba(134, 183, 219, 0.14);
@@ -59,22 +61,27 @@
   --line: rgba(19, 40, 28, 0.08);
   --line-2: rgba(19, 40, 28, 0.15);
   --text: #12201A;
+  /* Text colours here reach WCAG AA (4.5:1) on the light backgrounds,
+     e.g. text-3 4.7:1 on --bg, dark ink 5.2:1 on gold, gold-text 4.5:1 on
+     the gold banner. */
   --text-2: #4D6156;
-  --text-3: #7C8F83;
+  --text-3: #5F7266;
   --pine: #2C6A4A;
   --pine-2: #2F7A55;
-  --sage: #4E8A57;
+  --sage: #417248;
   --sage-2: #2F6B3A;
   --sage-dim: rgba(78, 138, 87, 0.12);
   --gold: #B8841F;
   --gold-2: #C99329;
-  --gold-ink: #FFFFFF;
+  --gold-ink: #241A05;
+  --gold-text: #876117;
   --gold-dim: rgba(184, 132, 31, 0.13);
-  --danger: #C4513E;
+  --danger: #AE4635;
+  --danger-ink: #FFFFFF;
   --danger-dim: rgba(196, 81, 62, 0.1);
-  --info: #3D7DAE;
+  --info: #336A94;
   --info-dim: rgba(61, 125, 174, 0.1);
-  --violet: #7A5BB5;
+  --violet: #7656B3;
   --violet-dim: rgba(122, 91, 181, 0.1);
   --overlay: rgba(10, 20, 15, 0.35);
   --shadow: 0 10px 40px rgba(20, 40, 30, 0.15);
@@ -100,6 +107,16 @@ a { color: var(--sage); }
 img, svg { display: block; }
 h1, h2, h3, p { margin: 0; }
 [hidden] { display: none !important; }
+
+/* Installed iPhone app: the status bar (clock, battery) is drawn in white on
+   top of the page ("black-translucent" in index.html). iOS reads that setting
+   only when the app starts, so it can't follow the theme. In the light theme
+   a dark strip behind the status bar keeps it readable. Its height is the
+   status bar area, so it's 0 (invisible) in a normal browser tab. */
+:root[data-theme="light"] body::before {
+  content: ""; position: fixed; top: 0; inset-inline: 0; z-index: 50;
+  height: var(--safe-t); background: #12201A; pointer-events: none;
+}
 
 /* ---------- App frame ------------------------------------------------------ */
 .app {
@@ -141,13 +158,13 @@ h1, h2, h3, p { margin: 0; }
   transition: color 0.15s;
 }
 .tab svg { width: 25px; height: 25px; transition: transform 0.25s var(--spring); }
-.tab.active { color: var(--gold); }
+.tab.active { color: var(--gold-text); }
 .tab.active svg { transform: translateY(-1px) scale(1.06); }
 .tab:active svg { transform: scale(0.88); }
 .tab .dot {
   position: absolute; top: 7px; inset-inline-start: calc(50% + 7px);
   min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px;
-  background: var(--danger); color: #fff; font-size: 10.5px; line-height: 17px; text-align: center;
+  background: var(--danger); color: var(--danger-ink); font-size: 10.5px; line-height: 17px; text-align: center;
 }
 
 /* ---------- Cards & lists ---------------------------------------------------- */
@@ -201,12 +218,12 @@ a.li { text-decoration: none; }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--sage); }
 .btn.danger { background: var(--danger-dim); border-color: transparent; color: var(--danger); }
 .btn.block { width: 100%; }
-.btn.small { min-height: 36px; padding: 0 12px; font-size: 14px; border-radius: 11px; }
+.btn.small { min-height: 44px; padding: 0 12px; font-size: 14px; border-radius: 12px; } /* 44px = iPhone tap size */
 .btn.tiny { min-height: 30px; padding: 0 10px; font-size: 13px; border-radius: 9px; }
 .btn svg { width: 19px; height: 19px; }
 .btn .spinner { width: 18px; height: 18px; }
 .icon-btn {
-  width: 42px; height: 42px; flex: none; border-radius: 50%; border: 0; display: grid; place-items: center;
+  width: 44px; height: 44px; flex: none; border-radius: 50%; border: 0; display: grid; place-items: center;
   background: var(--card-2); color: var(--text);
   transition: transform 0.12s var(--ease);
 }
@@ -252,7 +269,7 @@ a.li { text-decoration: none; }
 }
 .seg::-webkit-scrollbar { display: none; }
 .seg button {
-  flex: 1 0 auto; min-height: 38px; padding: 0 12px; border: 0; border-radius: 10px;
+  flex: 1 0 auto; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px;
   background: transparent; color: var(--text-2); font-weight: 650; font-size: 14.5px;
   transition: background 0.18s, color 0.18s;
 }
@@ -263,7 +280,7 @@ a.li { text-decoration: none; }
 .chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 4px; margin: 0 -2px; }
 .chips::-webkit-scrollbar { display: none; }
 .chip {
-  flex: none; min-height: 38px; padding: 0 14px; border-radius: 19px; border: 1px solid var(--line-2);
+  flex: none; min-height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid var(--line-2);
   background: var(--card); color: var(--text-2); font-weight: 600; font-size: 14.5px;
   display: inline-flex; align-items: center; gap: 6px;
   transition: background 0.15s, color 0.15s, transform 0.12s;
@@ -294,7 +311,11 @@ a.li { text-decoration: none; }
   display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border-radius: 12px;
   font-size: 12.5px; font-weight: 700; background: var(--card-2); color: var(--text-2); white-space: nowrap;
 }
-.badge.gold { background: var(--gold-dim); color: var(--gold); }
+.badge.gold { background: var(--gold-dim); color: var(--gold-text); }
+/* A badge used as a button (Today's day type) looks small but gets an
+   invisible 44px-high tap area. */
+button.badge { position: relative; }
+button.badge::after { content: ""; position: absolute; inset: -7px -2px; }
 .badge.sage { background: var(--sage-dim); color: var(--sage); }
 .badge.danger { background: var(--danger-dim); color: var(--danger); }
 .badge.info { background: var(--info-dim); color: var(--info); }
@@ -317,7 +338,9 @@ a.li { text-decoration: none; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pre { white-space: pre-line; }
 .divider { height: 1px; background: var(--line); margin: 14px 0; }
-.link-btn { border: 0; background: none; padding: 6px 4px; color: var(--sage); font-weight: 650; font-size: 14.5px; }
+.link-btn { position: relative; border: 0; background: none; padding: 6px 4px; color: var(--sage); font-weight: 650; font-size: 14.5px; }
+/* Invisible extra tap area (44px high) without changing the layout. */
+.link-btn::after { content: ""; position: absolute; inset: -6px -2px; }
 
 .spinner { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite; opacity: 0.8; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -326,6 +349,7 @@ a.li { text-decoration: none; }
 .bar { height: 8px; border-radius: 4px; background: var(--card-3); overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: 4px; background: var(--sage); transition: width 0.5s var(--ease); }
 .bar.gold > i { background: linear-gradient(90deg, var(--gold), var(--gold-2)); }
+.bar.danger > i { background: var(--danger); }
 .bar.thin { height: 5px; }
 
 /* Ring */
@@ -352,10 +376,13 @@ a.li { text-decoration: none; }
   display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 14px; margin-bottom: 12px;
   background: var(--info-dim); color: var(--info); font-size: 14px; font-weight: 550;
 }
-.banner.warn { background: var(--gold-dim); color: var(--gold); }
+.banner.warn { background: var(--gold-dim); color: var(--gold-text); }
 .banner.danger { background: var(--danger-dim); color: var(--danger); }
 .banner svg { width: 18px; height: 18px; flex: none; }
 .banner .grow { color: inherit; }
+/* The small close button in a banner gets a 44px tap area. */
+.banner .icon-btn { position: relative; }
+.banner .icon-btn::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
 
 /* ---------- Sheets (bottom modals) ---------------------------------------- */
 .sheet-backdrop {
@@ -403,9 +430,12 @@ a.li { text-decoration: none; }
 .toast.error { border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
 .toast.ok .ti { color: var(--sage); }
 .toast.error .ti { color: var(--danger); }
-.toast.xp .ti { color: var(--gold); }
+.toast.xp .ti { color: var(--gold-text); }
 .toast .ti svg { width: 20px; height: 20px; }
-.toast button { border: 0; background: none; color: var(--gold); font-weight: 750; padding: 6px 2px 6px 8px; }
+.toast button {
+  border: 0; background: none; color: var(--gold-text); font-weight: 750;
+  min-height: 44px; margin-block: -9px; padding-block: 0; padding-inline: 8px 2px; /* 44px tap area, same toast height */
+}
 @keyframes toast-in { from { opacity: 0; transform: translateY(-14px) scale(0.96); } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(-10px); } }
 
@@ -425,7 +455,7 @@ a.li { text-decoration: none; }
 /* ---------- Today ---------------------------------------------------------- */
 .hero { display: flex; align-items: center; gap: 16px; }
 .hero .lvl { font-size: 13px; color: var(--text-2); font-weight: 600; }
-.hero .lvl b { color: var(--gold); font-size: 15px; }
+.hero .lvl b { color: var(--gold-text); font-size: 15px; }
 .rings { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .ring-stat { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; border: 0; background: none; padding: 0; color: var(--text); }
 .ring-stat .l { font-size: 12px; color: var(--text-2); font-weight: 600; }
@@ -449,7 +479,7 @@ a.li { text-decoration: none; }
 .tl.past .name, .tl.past .t { color: var(--text-3); }
 .tl.past .node { background: var(--text-3); border-color: var(--text-3); }
 .tl.now .node { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 0 5px var(--gold-dim); animation: pulse 2s infinite; }
-.tl.now .name { color: var(--gold); }
+.tl.now .name { color: var(--gold-text); }
 .tl.done .node { background: var(--sage); border-color: var(--sage); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 9px transparent; } }
 
@@ -466,7 +496,7 @@ a.li { text-decoration: none; }
 .quest .emoji { font-size: 22px; width: 26px; text-align: center; flex: none; }
 .quest .grow .label { font-weight: 600; }
 .quest.done .grow .label { color: var(--text-2); }
-.quest .xp { font-size: 12.5px; font-weight: 750; color: var(--gold); white-space: nowrap; }
+.quest .xp { font-size: 12.5px; font-weight: 750; color: var(--gold-text); white-space: nowrap; }
 .quest .bar { margin-top: 6px; }
 .quest.auto .check { border-style: dashed; }
 .quest.done.auto .check { border-style: solid; }
@@ -479,7 +509,7 @@ a.li { text-decoration: none; }
 .msg.me { align-self: flex-end; background: var(--pine); color: #F2F8F2; border-end-end-radius: 6px; }
 .msg.unread { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--gold) 55%, transparent); }
 .msg .when { display: block; font-size: 11px; color: var(--text-3); margin-top: 4px; }
-.msg.me .when { color: rgba(242,248,242,.65); }
+.msg.me .when { color: rgba(242,248,242,.85); }
 .msg .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; white-space: normal; }
 .msg .q { margin-top: 10px; font-weight: 650; white-space: normal; }
 @keyframes msg-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
@@ -488,7 +518,8 @@ a.li { text-decoration: none; }
 .coach-avatar img { width: 100%; height: 100%; }
 
 /* ---------- Charts ------------------------------------------------------------ */
-.chart { width: 100%; height: auto; overflow: visible; }
+/* direction: ltr keeps the first/last date labels inside the chart in Arabic too. */
+.chart { width: 100%; height: auto; overflow: visible; direction: ltr; }
 .chart text { fill: var(--text-3); font-size: 11px; font-family: var(--font); }
 .chart .goal { stroke: var(--gold); stroke-dasharray: 4 4; stroke-width: 1.5; }
 .chart .bar-hit { fill: var(--sage); }
@@ -506,7 +537,7 @@ a.li { text-decoration: none; }
   display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 650;
 }
 .week-strip button b { font-size: 17px; color: var(--text); width: 34px; height: 34px; line-height: 34px; border-radius: 50%; }
-.week-strip button.today b { color: var(--gold); }
+.week-strip button.today b { color: var(--gold-text); }
 .week-strip button.sel b { background: var(--gold); color: var(--gold-ink); }
 .week-strip .dots { display: flex; gap: 2px; height: 5px; }
 .week-strip .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--sage); }
@@ -535,8 +566,8 @@ a.li { text-decoration: none; }
 .now-line::before { content: ""; position: absolute; inset-inline-start: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
 
 .weekgrid { display: grid; grid-template-columns: 34px repeat(7, 1fr); position: relative; }
-.weekgrid .wh { font-size: 11px; text-align: center; color: var(--text-2); font-weight: 650; padding-bottom: 6px; }
-.weekgrid .wh.today { color: var(--gold); }
+.weekgrid .wh { font-size: 11px; text-align: center; color: var(--text-2); font-weight: 650; padding-bottom: 6px; min-height: 44px; }
+.weekgrid .wh.today { color: var(--gold-text); }
 .weekgrid .tcol { position: relative; }
 .weekgrid .tcol .h { position: absolute; inset-inline-end: 4px; font-size: 10px; color: var(--text-3); transform: translateY(-6px); }
 .weekgrid .dcol { position: relative; border-inline-start: 1px solid var(--line); }
@@ -561,7 +592,7 @@ a.li { text-decoration: none; }
 .sets .tick.on { background: var(--sage); color: var(--bg); border-color: var(--sage); }
 .sets .row-done input { color: var(--sage-2); }
 .last { font-size: 12.5px; color: var(--text-2); margin-bottom: 8px; }
-.last b { color: var(--gold); }
+.last b { color: var(--gold-text); }
 .rest-timer {
   position: fixed; inset-inline: 16px; bottom: calc(var(--tab-h) + var(--safe-b) + 12px); z-index: 45;
   max-width: 608px; margin: 0 auto; display: flex; align-items: center; gap: 12px;
@@ -575,7 +606,7 @@ a.li { text-decoration: none; }
 .steps-list li { counter-increment: s; display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; }
 .steps-list li::before {
   content: counter(s); flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--gold-dim); color: var(--gold); font-weight: 800; font-size: 14px;
+  background: var(--gold-dim); color: var(--gold-text); font-weight: 800; font-size: 14px;
 }
 .ios-share { display: inline-block; width: 18px; height: 18px; vertical-align: -3px; color: var(--info); }
 code.token { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: var(--card-2); padding: 2px 6px; border-radius: 6px; overflow-wrap: anywhere; }
