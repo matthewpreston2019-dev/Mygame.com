@@ -2,12 +2,20 @@
 // Run: node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import * as nodeModule from 'node:module';
 import * as time from '../web/js/shared/time.js';
 import { DEFAULT_SETTINGS, mergeSettings, suggestTargets } from '../web/js/shared/defaults.js';
 import { buildDayPlan, gymWeekInfo } from '../web/js/shared/plan.js';
 import { createStats, levelFromXp } from '../web/js/shared/stats.js';
 import { messageSchedule, dueMessages, composeMessage, summaryText, weeklyText, checkinReply, fill } from '../web/js/shared/coach.js';
 import { TEXT } from '../web/js/shared/coach-text.js';
+import { shortenText } from '../supabase/functions/_shared/webpush.js';
+// The server's copies (made by scripts/sync-shared.mjs) — the Edge Function tests use these.
+import * as appTime from '../supabase/functions/_shared/app/time.js';
+import * as appDefaults from '../supabase/functions/_shared/app/defaults.js';
+import * as appStats from '../supabase/functions/_shared/app/stats.js';
+import * as appCoach from '../supabase/functions/_shared/app/coach.js';
 
 const S = mergeSettings({ onboarded: true });
 const TZ = 'Europe/Berlin';
@@ -304,4 +312,327 @@ test('all coach languages have the same placeholders as English', () => {
   };
   for (const lang of ['es', 'de', 'ru', 'zh', 'ar']) walk(TEXT.en, TEXT[lang], lang);
   assert.equal(fill('{n} kcal', { n: 1800 }, 'de'), '1.800 kcal');
+});
+
+// ---- history stays put (past days, quests, targets) ---------------------------
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const manual = (id, extra = {}) => ({ id, kind: 'manual', xp: 10, days: ALL_DAYS, sort: 1, active: true, ...extra });
+
+test('adding or switching off quests does not rewrite past days', () => {
+  const today = '2026-10-21';
+  const past = time.dateRange('2026-10-14', '2026-10-20');
+  const logs = past.map((d) => ({ quest_id: 'm1', date: d, xp: 10 }));
+  assert.equal(createStats({ quests: [manual('m1')], quest_log: logs }, S, { today }).streak(today), 7);
+  // Two quests added today: earlier days aren't judged against them.
+  const added = [manual('m1'), manual('m2', { created_at: '2026-10-21T08:00:00Z' }), manual('m3', { created_at: '2026-10-21T08:00:00Z' })];
+  const st = createStats({ quests: added, quest_log: logs }, S, { today });
+  assert.equal(st.streak(today), 7);
+  assert.equal(st.questsFor(today).length, 3); // ...but they count from today on
+  // Switching off a quest you kept missing doesn't turn the past into wins.
+  const off = [manual('m1'), manual('m4', { active: false, inactive_since: today })];
+  const st2 = createStats({ quests: off, quest_log: logs }, S, { today });
+  assert.equal(st2.completion('2026-10-20').ratio, 0.5);
+  assert.equal(st2.streak(today), 0);
+  assert.deepEqual(st2.questsFor(today).map((q) => q.quest.id), ['m1']); // gone from today
+});
+
+test('raising a target or changing quest days later keeps past XP; today follows the data', () => {
+  const today = '2026-10-21';
+  const yesterday = '2026-10-20';
+  const q = [{ id: 's', kind: 'steps', xp: 20, days: ALL_DAYS, sort: 1, active: true }];
+  const steps = [{ date: yesterday, steps: 9000 }, { date: today, steps: 9000 }];
+  const logs = [{ quest_id: 's', date: yesterday, xp: 20 }, { quest_id: 's', date: today, xp: 20 }];
+  const higher = mergeSettings({ onboarded: true, targets: { steps: 10000 } });
+  const st = createStats({ quests: q, steps, quest_log: logs }, higher, { today });
+  assert.equal(st.questsFor(yesterday)[0].done, true); // earned under the old target → stays earned
+  assert.equal(st.questsFor(today)[0].done, false); // today: 9,000 < 10,000 → reconcile takes it back
+  // Tuesday removed from the quest's days later: last Tuesday still counts as done.
+  const noTue = [{ ...q[0], days: [0, 1, 3, 4, 5, 6] }];
+  const st2 = createStats({ quests: noTue, steps, quest_log: logs }, S, { today });
+  assert.deepEqual([st2.questsFor(yesterday)[0].applicable, st2.questsFor(yesterday)[0].done], [true, true]);
+  // A past day without an XP entry is still judged by its data (e.g. app not opened that day).
+  assert.equal(createStats({ quests: q, steps, quest_log: [] }, S, { today }).questsFor(yesterday)[0].done, true);
+});
+
+// ---- reports -------------------------------------------------------------------
+const EN = { lang: 'en', settings: S };
+
+test('daily summary: no food logged is a miss, not "Every goal hit"', () => {
+  const sm = { studyGoal: 120, studyMin: 120, gymPlanned: true, gymDone: true, foodsLogged: 0, kcal: 0, protein: 0, kcalTarget: 2200, proteinTarget: 140, steps: null, stepsGoal: 8000 };
+  const txt = summaryText(sm, EN);
+  assert.doesNotMatch(txt, /Every goal hit/);
+  assert.match(txt, /Fix tomorrow: food logging/);
+  // A rest day with nothing logged at all: "can't judge", not "off day".
+  assert.match(summaryText({ ...sm, studyGoal: 0, studyMin: 0, gymPlanned: false, gymDone: false }, EN), /Not much logged today/);
+});
+
+test('weekly steps: one synced day is flagged, not "your best area"', () => {
+  const r = {
+    daysCounted: 7,
+    study: { minutes: 400, goal: 570, daysHit: 2, daysPlanned: 7 },
+    gym: { done: 3, planned: 3 },
+    food: { loggedDays: 7, avgKcal: 2200, avgProtein: 140, kcalTarget: 2200, proteinTarget: 140 },
+    steps: { avg: 16000, goal: 8000, loggedDays: 1, daysHit: 1 },
+    sleep: { score: null, nights: 0 }, weight: { change: null }, streak: 0,
+  };
+  const txt = weeklyText(r, EN);
+  assert.match(txt, /hit 1\/7 days/);
+  assert.match(txt, /Steps synced on only 1 of 7 days/);
+  assert.match(txt, /Good week/);
+  assert.doesNotMatch(txt, /best area was steps/);
+  // Enough synced days → steps count again.
+  assert.match(weeklyText({ ...r, steps: { ...r.steps, loggedDays: 5 } }, EN), /best area was steps/);
+});
+
+test('a week in progress is judged on the days so far (gym, sleep)', () => {
+  const mon = '2026-10-19';
+  const night = (date) => ({ date, slept_at: time.zonedTimeToDate(time.addDays(date, -1), '22:30', TZ).toISOString(), woke_at: time.zonedTimeToDate(date, '07:00', TZ).toISOString() });
+  const st = createStats({
+    ...data(),
+    workouts: [{ id: 'w', date: mon }], workout_sets: [{ id: 'x', workout_id: 'w', done: true, reps: 8, weight: 50 }],
+    study_sessions: [{ id: 's', date: mon, minutes: 120 }],
+    foods: [{ id: 'f', date: mon, kcal: 2200, protein: 140, eaten_at: '2026-10-19T12:00:00Z' }],
+    steps: [{ date: mon, steps: 9000 }],
+    sleep_logs: ['2026-10-16', '2026-10-17', '2026-10-18', mon].map(night), // 3 nights from last week
+  }, S, { today: mon });
+  const r = st.week(mon, mon);
+  assert.deepEqual(r.gym, { done: 1, planned: 1 });
+  assert.equal(r.sleep.nights, 1); // last week's nights are left out
+  assert.equal(st.sleepScore(mon).nights, 4); // the plain 7-night score is unchanged
+  assert.doesNotMatch(weeklyText(r, EN), /focus on the gym/);
+  assert.equal(createStats(data(), S).week(mon, '2026-10-25').gym.planned, 3); // whole week on Sunday
+});
+
+// ---- planner & coach -------------------------------------------------------------
+test('an exam after school is a fixed block: nothing overlaps it', () => {
+  for (const at of ['16:00', '13:30']) {
+    const p = buildDayPlan({ date: '2026-10-19', settings: S, override: { exam: { subject: 'Bio', time: at } } });
+    const exam = block(p, 'exam');
+    for (const b of p.blocks.filter((x) => ['relax', 'gym', 'refuel', 'study'].includes(x.kind))) {
+      assert.ok(b.startMin >= exam.endMin, `${at}: ${b.kind} ${b.start} overlaps the exam`);
+    }
+    assert.ok(block(p, 'study').endMin <= time.toMinutes('21:00'));
+    const gymPush = messageSchedule(p, S).find((m) => m.key === 'gym');
+    assert.ok(gymPush.atMin >= exam.endMin, `${at}: gym reminder during the exam`);
+  }
+  // A morning exam doesn't move the afternoon.
+  const am = buildDayPlan({ date: '2026-10-19', settings: S, override: { exam: { subject: 'Bio', time: '10:00' } } });
+  assert.equal(block(am, 'relax').start, '14:30');
+});
+
+test('late check-in still gets its summary; 00:00 check-in doesn\'t squash the plan', () => {
+  const late = mergeSettings({ onboarded: true, schedule: { checkinAt: '23:30', windDownAt: '23:40', lightsOut: '23:50' } });
+  const sched = messageSchedule(buildDayPlan({ date: '2026-10-19', settings: late }), late);
+  assert.equal(sched.find((m) => m.key === 'summary').atMin, time.toMinutes('23:59'));
+  const midnight = mergeSettings({ onboarded: true, schedule: { checkinAt: '00:00' } });
+  const p = buildDayPlan({ date: '2026-10-19', settings: midnight });
+  assert.equal(p.gym, 'upper');
+  assert.equal(block(p, 'study').end, '19:30');
+});
+
+test('"next chance" for the gym follows the real plans (planner changes, catch-up)', () => {
+  const mon = '2026-10-19';
+  const ctxFor = (day_plans) => ({ lang: 'en', settings: S, stats: createStats({ ...data(), day_plans }, S, { today: mon }), date: mon, templates: [] });
+  const wedRest = ctxFor([{ date: '2026-10-21', day_type: 'rest' }]);
+  assert.match(composeMessage('nudge_gym', wedRest).body, /Next chance: Friday/);
+  assert.match(checkinReply({ trained: false }, wedRest), /Next session: Friday/);
+  // Wednesday and Friday off → the Saturday catch-up session is the next chance.
+  const both = ctxFor([{ date: '2026-10-21', day_type: 'rest' }, { date: '2026-10-23', skip_gym: true }]);
+  assert.match(composeMessage('nudge_gym', both).body, /Next chance: Saturday/);
+});
+
+test('gym message shows the exact last weight (2 decimals)', () => {
+  const templates = [{ id: 't1', key: 'upper', exercises: [{ id: 'bench', sets: 3, reps: '6-8' }] }];
+  const prev = { id: 'w0', date: '2026-10-16', template_id: 't1', started_at: '2026-10-16T14:00:00Z' };
+  const st = createStats({ ...data(), workouts: [prev], workout_sets: [{ id: 'a', workout_id: 'w0', exercise: 'bench', done: true, reps: 8, weight: 61.25 }] }, S);
+  const ctx = { lang: 'en', settings: S, stats: st, date: '2026-10-19', templates };
+  assert.match(composeMessage('gym', ctx).body, /61\.25 kg × 8/);
+  assert.match(composeMessage('gym', { ...ctx, lang: 'de' }).body, /61,25 kg × 8/);
+});
+
+test('push text is shortened without cutting an emoji in half', () => {
+  const body = 'a'.repeat(376) + '🔥 Current streak: 12'; // the emoji sits right on the old cut
+  const out = shortenText(body, 380);
+  assert.ok(out.isWellFormed(), 'no broken half-emoji');
+  assert.ok(Array.from(out).length <= 380);
+  assert.ok(out.endsWith('…'));
+  assert.equal(shortenText('short 🔥', 380), 'short 🔥');
+  // Prefers to stop at a line break.
+  const lines = Array.from({ length: 12 }, (_, i) => `📚 line ${i} ${'x'.repeat(30)}`).join('\n');
+  const kept = shortenText(lines, 380).slice(0, -1).split('\n');
+  assert.ok(kept.length > 1 && kept.every((l) => lines.split('\n').includes(l)), 'only whole lines are kept');
+});
+
+// ---- Edge Functions (Deno) run in Node ---------------------------------------------
+// The server functions are TypeScript for Deno. To test them here we strip the
+// types (Node 22.13+), swap their imports for the objects given in `deps`, and
+// keep the handler passed to Deno.serve. Nothing talks to a real database.
+const canStrip = typeof nodeModule.stripTypeScriptTypes === 'function';
+const serverTest = (name, fn) => test(name, { skip: !canStrip && 'needs Node 22.13+ (TypeScript type stripping)' }, fn);
+
+function loadEdgeFunction(file, deps, names = []) {
+  const warn = process.emitWarning;
+  process.emitWarning = () => {}; // hide the "experimental feature" notice
+  let src;
+  try { src = nodeModule.stripTypeScriptTypes(readFileSync(new URL(file, import.meta.url), 'utf8')); } finally { process.emitWarning = warn; }
+  src = src.replace(/^import\s*\{([^}]*)\}\s*from\s*'[^']*';/gm, (_, list) => `const {${list}} = __deps;`).replace(/^export\s+/gm, '');
+  const out = {};
+  const Deno = { serve: (handler) => { out.handler = handler; } };
+  return Object.assign(out, new Function('__deps', 'Deno', `${src}\nreturn { ${names.join(', ')} };`)(deps, Deno));
+}
+
+/**
+ * A tiny in-memory stand-in for the Supabase client: from().select().eq()…
+ * Like the real API it returns at most `maxRows` rows per request.
+ * Every query is recorded in db.queries ({ table, gte, lte, orders, range }).
+ */
+function fakeDb(tables, { maxRows = 1000 } = {}) {
+  const queries = [];
+  const db = {
+    queries, tables,
+    from(table) {
+      const q = { table, filters: [], orders: [], range: null, op: 'select' };
+      queries.push(q);
+      const list = () => (tables[table] ||= []);
+      const run = () => {
+        const hit = list().filter((r) => q.filters.every((f) => f(r)));
+        if (q.op === 'update') { for (const r of hit) Object.assign(r, q.patch); return { data: null, error: null }; }
+        if (q.op !== 'select') return { data: null, error: null };
+        const sorted = hit.slice().sort((a, b) => {
+          for (const c of q.orders) { if (a[c] !== b[c]) return String(a[c]) < String(b[c]) ? -1 : 1; }
+          return 0;
+        });
+        const [lo, hi] = q.range || [0, Infinity];
+        const page = sorted.slice(lo, Math.min(hi + 1, lo + maxRows));
+        return { data: q.single ? page[0] ?? null : page, error: null, count: hit.length };
+      };
+      const b = {
+        select() { return b; },
+        eq(c, v) { q.filters.push((r) => r[c] === v); return b; },
+        gte(c, v) { q.gte = v; q.filters.push((r) => r[c] >= v); return b; },
+        lte(c, v) { q.lte = v; q.filters.push((r) => r[c] <= v); return b; },
+        in(c, vs) { q.filters.push((r) => vs.includes(r[c])); return b; },
+        is(c, v) { q.filters.push((r) => (r[c] ?? null) === v); return b; },
+        order(c) { q.orders.push(c); return b; },
+        range(lo, hi) { q.range = [lo, hi]; return b; },
+        limit(n) { q.range = [0, n - 1]; return b; },
+        maybeSingle() { q.single = true; return b; },
+        insert(row) { q.op = 'insert'; list().push(row); return b; },
+        update(patch) { q.op = 'update'; q.patch = patch; return b; },
+        upsert(row, opts = {}) {
+          q.op = 'upsert';
+          const keys = (opts.onConflict || 'id').split(',');
+          const i = list().findIndex((r) => keys.every((k) => r[k] === row[k]));
+          if (i >= 0) list()[i] = { ...list()[i], ...row }; else list().push(row);
+          return b;
+        },
+        then(resolve, reject) { return Promise.resolve(run()).then(resolve, reject); },
+      };
+      return b;
+    },
+  };
+  return db;
+}
+
+const jsonStub = (body, status = 200) => ({ status, body });
+
+function loadCoachTick(db, pushes = []) {
+  return loadEdgeFunction('../supabase/functions/coach-tick/index.ts', {
+    admin: () => db, json: jsonStub, getSecret: async () => 'secret', safeEqual: (a, b) => a === b,
+    sendToUser: async (...args) => { pushes.push(args); return { sent: 1, failed: 0 }; },
+    ...appTime, ...appDefaults, ...appStats, ...appCoach,
+  }, ['rows', 'setsFor', 'tickUser', 'pushTtl']);
+}
+
+serverTest('coach-tick reads every row, past the 1000-rows-per-request cap', async () => {
+  const foods = Array.from({ length: 2500 }, (_, i) => ({ id: `f${String(i).padStart(4, '0')}`, user_id: 'u1', date: time.addDays('2026-08-01', i % 80), deleted: false }));
+  const sets = Array.from({ length: 1200 }, (_, i) => ({ id: `s${String(i).padStart(4, '0')}`, workout_id: `w${i % 3}`, deleted: false }));
+  const db = fakeDb({ foods, workout_sets: sets });
+  const ct = loadCoachTick(db);
+  const got = await ct.rows(db, 'foods', 'u1', '2026-01-01');
+  assert.equal(got.length, 2500);
+  assert.equal(new Set(got.map((r) => r.id)).size, 2500);
+  assert.deepEqual(db.queries[0].orders, ['date', 'id']); // a unique order, so pages don't overlap
+  assert.equal((await ct.setsFor(db, ['w0', 'w1', 'w2'])).length, 1200);
+});
+
+serverTest('coach-tick weekly report: streak counts past 90 days; plans loaded a week ahead', async () => {
+  const sunday = '2026-11-01';
+  const own = (r) => ({ user_id: 'u1', deleted: false, ...r });
+  const db = fakeDb({
+    quests: [own(manual('m1'))],
+    quest_log: time.dateRange(time.addDays(sunday, -150), time.addDays(sunday, -1)).map((date) => own({ quest_id: 'm1', date, xp: 10 })),
+  });
+  const ct = loadCoachTick(db);
+  const res = await ct.tickUser(db, { user_id: 'u1', settings: { onboarded: true } }, new Date('2026-11-01T18:05:00Z'), true); // 19:05 Berlin
+  const weekly = res.messages.find((m) => m.key === 'weekly');
+  assert.match(weekly.body, /Current streak: 150/);
+  assert.equal(db.queries.find((q) => q.table === 'foods').gte, time.addDays(sunday, -740));
+  assert.equal(db.queries.filter((q) => q.table === 'day_plans').pop().lte, time.addDays(sunday, 8));
+});
+
+serverTest('coach-tick gives time-bound pushes a short lifetime', async () => {
+  const pushes = [];
+  const db = fakeDb({});
+  const ct = loadCoachTick(db, pushes);
+  assert.equal(ct.pushTtl('gym'), 30 * 60);
+  assert.equal(ct.pushTtl('summary'), 12 * 3600);
+  // Monday 15:05 Berlin: the 14:30 plan and the 15:00 gym reminder are due.
+  await ct.tickUser(db, { user_id: 'u1', settings: { onboarded: true } }, new Date('2026-10-19T13:05:00Z'), false);
+  const ttl = Object.fromEntries(pushes.map(([, , payload, opts]) => [payload.tag, opts.ttl]));
+  assert.deepEqual(ttl, { plan: 12 * 3600, gym: 30 * 60 });
+});
+
+serverTest('sendToUser passes the lifetime on and shortens long texts safely', async () => {
+  const sent = [];
+  const { sendToUser } = loadEdgeFunction('../supabase/functions/_shared/notify.ts', {
+    generateVapidKeys: async () => ({}), shortenText,
+    sendPush: async (sub, message, vapid, opts) => { sent.push({ message, opts }); return { ok: true, status: 201 }; },
+    getSecret: async (db, key) => (key === 'vapid' ? JSON.stringify({ publicKey: 'p', privateJwk: {} }) : null),
+  }, ['sendToUser']);
+  const db = fakeDb({ push_subscriptions: [{ id: 's1', user_id: 'u1', endpoint: 'https://push.example/1', p256dh: 'k', auth: 'a', failures: 0, deleted: false }] });
+  await sendToUser(db, 'u1', { title: 'Gym', body: 'a'.repeat(376) + '🔥🔥🔥🔥🔥', tag: 'gym' }, { ttl: 1800 });
+  await sendToUser(db, 'u1', { title: 'Coach', body: 'Test', tag: 'test' });
+  assert.equal(sent[0].opts.ttl, 1800);
+  assert.ok(sent[0].message.body.isWellFormed());
+  assert.equal(sent[1].opts.ttl, 24 * 3600); // default
+});
+
+serverTest('steps endpoint: a missing or empty value is an error and never overwrites the day', async () => {
+  const today = time.dateInTz('Europe/Berlin');
+  const db = fakeDb({
+    profiles: [{ user_id: 'u1', settings: { onboarded: true }, steps_token: 'tok', deleted: false }],
+    steps: [{ user_id: 'u1', date: today, steps: 9000, source: 'shortcut', deleted: false }],
+  });
+  const fn = loadEdgeFunction('../supabase/functions/steps/index.ts', { admin: () => db, json: jsonStub, preflight: () => jsonStub('ok'), ...appTime, ...appDefaults }, ['parseSteps']);
+  const call = (init, query = '') => fn.handler(new Request(`https://x.supabase.co/functions/v1/steps${query}`, init));
+  const post = (body, type = 'application/json') => call({ method: 'POST', headers: { 'content-type': type, 'x-steps-token': 'tok' }, body });
+  const stored = () => db.tables.steps[0].steps;
+
+  for (const [label, res] of [
+    ['empty string', await post(JSON.stringify({ steps: '' }))],
+    ['no field', await post(JSON.stringify({}))],
+    ['empty text body', await post('', 'text/plain')],
+    ['GET without steps', await call({ method: 'GET' }, '?token=tok')],
+  ]) {
+    assert.equal(res.status, 400, label);
+    assert.equal(stored(), 9000, label);
+  }
+  // A lower Shortcut reading for the same day (Health unreadable → 0) keeps the stored count.
+  const zero = await post(JSON.stringify({ steps: 0, date: today }));
+  assert.deepEqual([zero.status, zero.body.kept, stored()], [200, true, 9000]);
+  const more = await post(JSON.stringify({ steps: '9.500', date: today }));
+  assert.deepEqual([more.status, stored()], [200, 9500]);
+
+  assert.equal(fn.parseSteps('8,123'), 8123);
+  assert.equal(fn.parseSteps(8123.4), 8123);
+  for (const v of [undefined, null, '', '   ', [], 'abc']) assert.ok(Number.isNaN(fn.parseSteps(v)), String(v));
+});
+
+test('Edge Functions deploy without the gateway JWT check (they check callers themselves)', () => {
+  const toml = readFileSync(new URL('../supabase/config.toml', import.meta.url), 'utf8');
+  assert.match(toml, /^project_id\s*=/m);
+  for (const fn of ['account', 'push', 'steps', 'coach-tick']) {
+    assert.match(toml, new RegExp(`\\[functions\\.${fn}\\]\\s*\\nverify_jwt\\s*=\\s*false`), fn);
+  }
 });

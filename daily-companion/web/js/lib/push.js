@@ -23,20 +23,33 @@ export function pushSupport() {
   };
 }
 
+// The server's public push key. Always asks the server first, because the key
+// changes when the server's keys are recreated (e.g. a new Supabase project);
+// the saved copy is only used offline.
 async function publicKey() {
   try {
-    const cached = localStorage.getItem(KEY_CACHE);
+    const { publicKey: k } = await callFunction('push', { method: 'GET' });
+    try { localStorage.setItem(KEY_CACHE, k); } catch { /* ignore */ }
+    return k;
+  } catch (e) {
+    let cached = null;
+    try { cached = localStorage.getItem(KEY_CACHE); } catch { /* storage blocked */ }
     if (cached) return cached;
-  } catch { /* storage blocked */ }
-  const { publicKey: k } = await callFunction('push', { method: 'GET' });
-  try { localStorage.setItem(KEY_CACHE, k); } catch { /* ignore */ }
-  return k;
+    throw e;
+  }
 }
 
 function keyToBytes(b64url) {
   const pad = '='.repeat((4 - (b64url.length % 4)) % 4);
   const raw = atob((b64url + pad).replace(/-/g, '+').replace(/_/g, '/'));
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+// The key a subscription was made with, in the same text form as publicKey().
+function subscriptionKey(sub) {
+  const k = sub.options?.applicationServerKey;
+  if (!k) return null;
+  return btoa(String.fromCharCode(...new Uint8Array(k))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 async function saveSubscription(sub) {
@@ -78,8 +91,8 @@ export async function enablePush() {
     const key = await publicKey();
     if (sub) {
       // If the server key changed, the old subscription is useless.
-      const subKey = sub.options?.applicationServerKey;
-      if (subKey && btoa(String.fromCharCode(...new Uint8Array(subKey))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') !== key) {
+      const subKey = subscriptionKey(sub);
+      if (subKey && subKey !== key) {
         await sub.unsubscribe();
         sub = null;
       }
@@ -105,13 +118,24 @@ export async function disablePush() {
 
 /**
  * Called on app start: if this device is subscribed, make sure Supabase still
- * has it (subscriptions can rotate). Silent — never prompts.
+ * has it (subscriptions can rotate). If the server's push key changed, the old
+ * subscription can't receive anything, so subscribe again with the new key
+ * (permission is already granted). Silent — never prompts.
  */
 export async function refreshPushSubscription() {
   try {
     if (!pushSupport().supported || Notification.permission !== 'granted') return;
-    const sub = await currentSubscription();
-    if (sub) await saveSubscription(sub);
+    let sub = await currentSubscription();
+    if (!sub) return;
+    const key = await publicKey();
+    const subKey = subscriptionKey(sub);
+    if (subKey && subKey !== key) {
+      await sub.unsubscribe();
+      const reg = await navigator.serviceWorker.ready;
+      // If this fails, Settings → Notifications shows "off" and you can turn it on again.
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(key) });
+    }
+    await saveSubscription(sub);
   } catch { /* offline — next launch will retry */ }
 }
 

@@ -12,11 +12,14 @@ import { Ring, BarChart, SheetFrame, Field, confirmDialog } from '../../componen
 import { Icon } from '../../components/icons.js';
 import { openSheet, toast, haptic } from '../../lib/ui.js';
 import { openStepsShortcutSheet } from '../settings/steps-shortcut.js';
-import { num } from '../onboarding.js';
+import { wholeNum } from './numbers.js';
 
 export function StepsSection() {
   const { date: today, tz } = useClock();
-  const [ws, setWs] = useState(weekStart(today));
+  // How many weeks back you're looking (0 = this week). The week itself is
+  // worked out from today, so after midnight on Sunday it moves on by itself.
+  const [back, setBack] = useState(0);
+  const ws = addDays(weekStart(today), -7 * back);
   const s = store.settings();
   const stats = store.stats();
   const td = stats.day(today);
@@ -45,9 +48,9 @@ export function StepsSection() {
     <div class="section-title">${t('steps.week')}</div>
     <div class="card">
       <div class="cal-nav" style="margin-bottom:6px">
-        <button class="icon-btn" aria-label=${t('common.previous')} onClick=${() => setWs(addDays(ws, -7))}><${Icon} name="back" class="flip" /></button>
+        <button class="icon-btn" aria-label=${t('common.previous')} onClick=${() => setBack(back + 1)}><${Icon} name="back" class="flip" /></button>
         <div class="grow small">${fmtDate(ws, 'dayMonth')} – ${fmtDate(addDays(ws, 6), 'dayMonth')}</div>
-        <button class="icon-btn" aria-label=${t('common.next')} disabled=${addDays(ws, 7) > today} style=${addDays(ws, 7) > today ? 'opacity:.3' : ''} onClick=${() => setWs(addDays(ws, 7))}><${Icon} name="chev" class="flip" /></button>
+        <button class="icon-btn" aria-label=${t('common.next')} disabled=${back === 0} style=${back === 0 ? 'opacity:.3' : ''} onClick=${() => setBack(back - 1)}><${Icon} name="chev" class="flip" /></button>
       </div>
       <${BarChart} data=${data} goal=${goal} formatValue=${(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : v)} />
       <div class="row between mt-8 small muted">
@@ -70,7 +73,7 @@ function StepsForm({ date, close }) {
   const options = Array.from({ length: 7 }, (_, i) => addDays(today, -i));
 
   function save() {
-    const n = num(String(v).replace(/[.,\s']/g, ''));
+    const n = wholeNum(v); // "10,000" and "10.000" both mean 10000
     if (!(Number.isInteger(n) && n >= 0 && n <= 200000)) return setErr(t('validate.range', { min: 0, max: 200000 }));
     store.put('steps', { date: d, steps: n, source: 'manual' });
     haptic();

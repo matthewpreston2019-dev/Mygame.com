@@ -4,12 +4,16 @@ import { Icon } from './icons.js';
 import { t } from '../lib/i18n.js';
 import { subscribeUi, getSheets, getToasts, closeSheet, dismissToast, closeTopSheet, openSheet } from '../lib/ui.js';
 
-/** Circular progress ring. value 0..1 (can exceed 1 → full + gold). */
+/**
+ * Circular progress ring. value 0..1 (can exceed 1 → full ring).
+ * A full ring in the default sage colour turns gold ("goal reached"). Any other
+ * colour the caller picks is kept, so e.g. a red "too much" ring stays red.
+ */
 export function Ring({ value = 0, size = 64, stroke = 7, color = 'var(--sage)', track = 'var(--card-3)', children }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const v = Math.max(0, Math.min(1, value || 0));
-  const col = value >= 1 ? 'var(--gold)' : color;
+  const col = value >= 1 && color === 'var(--sage)' ? 'var(--gold)' : color;
   return html`<div class="ring" style=${`width:${size}px;height:${size}px`}>
     <svg width=${size} height=${size}>
       <circle cx=${size / 2} cy=${size / 2} r=${r} stroke=${track} stroke-width=${stroke} />
@@ -20,9 +24,14 @@ export function Ring({ value = 0, size = 64, stroke = 7, color = 'var(--sage)', 
   </div>`;
 }
 
-export function Bar({ value = 0, gold, thin }) {
+/**
+ * Progress bar. value 0..1; a full bar turns gold ("goal reached").
+ * over = true shows it red instead (e.g. eating well above the kcal target).
+ */
+export function Bar({ value = 0, gold, thin, over }) {
   const v = Math.max(0, Math.min(1, value || 0));
-  return html`<div class=${`bar ${gold || value >= 1 ? 'gold' : ''} ${thin ? 'thin' : ''}`}><i style=${`width:${v * 100}%`}></i></div>`;
+  const tone = over ? 'danger' : gold || value >= 1 ? 'gold' : '';
+  return html`<div class=${`bar ${tone} ${thin ? 'thin' : ''}`}><i style=${`width:${v * 100}%`}></i></div>`;
 }
 
 export function Toggle({ checked, onChange, label, disabled }) {

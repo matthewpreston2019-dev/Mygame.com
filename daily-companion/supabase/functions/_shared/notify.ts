@@ -1,7 +1,7 @@
 // Sending push notifications to all of a user's devices, with bookkeeping:
 // dead subscriptions are removed, repeated failures are counted.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.117.2';
-import { generateVapidKeys, sendPush } from './webpush.js';
+import { generateVapidKeys, sendPush, shortenText } from './webpush.js';
 import { getSecret } from './http.ts';
 
 type Vapid = { publicKey: string; privateJwk: JsonWebKey };
@@ -23,8 +23,12 @@ export type PushPayload = { title: string; body: string; url?: string; tag?: str
 
 const MAX_FAILURES = 10;
 
-/** Send to every active subscription of a user. */
-export async function sendToUser(db: SupabaseClient, userId: string, payload: PushPayload) {
+/**
+ * Send to every active subscription of a user.
+ * opts.ttl – seconds the push service keeps the message for a phone that's
+ *            offline; after that it's dropped (default 24 h).
+ */
+export async function sendToUser(db: SupabaseClient, userId: string, payload: PushPayload, opts: { ttl?: number } = {}) {
   const { data: subs, error } = await db.from('push_subscriptions')
     .select('id, endpoint, p256dh, auth, failures').eq('user_id', userId).eq('deleted', false);
   if (error) throw error;
@@ -33,12 +37,11 @@ export async function sendToUser(db: SupabaseClient, userId: string, payload: Pu
   const vapid = await getVapid(db);
   const subject = (await getSecret(db, 'vapid_subject')) || 'mailto:daily-companion@users.noreply.github.com';
   // Keep the payload well under the 4 KB push limit (the full text is in the app).
-  const body = payload.body.length > 380 ? payload.body.slice(0, 377) + '…' : payload.body;
-  const message = { ...payload, body };
+  const message = { ...payload, body: shortenText(payload.body, 380) };
 
   const results = [];
   for (const s of subs) {
-    const r = await sendPush(s, message, vapid, { subject, topic: payload.tag, urgency: 'normal' });
+    const r = await sendPush(s, message, vapid, { subject, topic: payload.tag, urgency: 'normal', ttl: opts.ttl ?? 24 * 3600 });
     results.push({ id: s.id, status: r.status, ok: r.ok, error: r.error });
     if (r.ok) {
       await db.from('push_subscriptions').update({ failures: 0, last_ok_at: new Date().toISOString() }).eq('id', s.id);

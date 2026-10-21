@@ -11,7 +11,7 @@ import { addDays } from '../../shared/time.js';
 import { LineChart, SheetFrame, Field, Empty, confirmDialog } from '../../components/common.js';
 import { Icon } from '../../components/icons.js';
 import { openSheet, toast, haptic } from '../../lib/ui.js';
-import { num } from '../onboarding.js';
+import { num } from './numbers.js';
 
 const kg = (n) => fmtNum(Number(n), 1);
 
@@ -27,16 +27,29 @@ export function WeightSection() {
   const thisWeek = avg(addDays(today, -7), today);
   const lastWeek = avg(addDays(today, -14), addDays(today, -7));
   const change = thisWeek != null && lastWeek != null ? Math.round((thisWeek - lastWeek) * 10) / 10 : null;
-  const toGo = latest && goal ? Math.round((Number(latest.kg) - goal) * 10) / 10 : null;
+  // How far the goal is from your latest weigh-in: > 0 means gain, < 0 means lose.
+  // The goal can be above or below you, so the direction comes from it.
+  const toGo = latest && goal ? Math.round((goal - Number(latest.kg)) * 10) / 10 : null;
+  const atGoal = toGo != null && Math.abs(toGo) <= 0.5; // daily swings are bigger than this
+  // Goal above you: shown as "+2.0 kg" with gain-side tips. Losing (and being at
+  // the goal) keeps the "6.0 kg" display and tips from before.
+  const gaining = !atGoal && toGo > 0;
+  // Pace toward the goal: negative = moving toward it (down when losing, up when gaining).
+  const pace = change == null ? null : gaining ? -change : change;
+  const paceText = pace == null ? null
+    : pace < -1 ? (gaining ? t('weight.gainTooFast') : t('weight.tooFast'))
+    : pace < 0 ? t('weight.goodPace')
+    : pace === 0 ? t('weight.flat')
+    : gaining ? t('weight.gainDown') : t('weight.up');
 
   return html`
     <div class="stats">
       <div class="stat"><div class="v">${latest ? kg(latest.kg) : '–'}<small>kg</small></div><div class="l">${t('weight.current')}</div></div>
       <div class="stat"><div class="v">${goal ? kg(goal) : '–'}<small>kg</small></div><div class="l">${t('weight.goal')}</div></div>
       <div class="stat"><div class="v">${change == null ? '–' : `${change > 0 ? '+' : ''}${kg(change)}`}<small>kg</small></div><div class="l">${t('weight.weekChange')}</div></div>
-      <div class="stat"><div class="v">${toGo == null ? '–' : toGo <= 0 ? '✓' : kg(toGo)}${toGo > 0 ? html`<small>kg</small>` : ''}</div><div class="l">${t('weight.toGo')}</div></div>
+      <div class="stat"><div class="v">${toGo == null ? '–' : atGoal ? '✓' : html`${gaining ? '+' : ''}${kg(Math.abs(toGo))}<small>kg</small>`}</div><div class="l">${t('weight.toGo')}</div></div>
     </div>
-    ${change != null && html`<p class="small muted mt-12">${change < -1 ? t('weight.tooFast') : change < 0 ? t('weight.goodPace') : change === 0 ? t('weight.flat') : t('weight.up')}</p>`}
+    ${paceText && html`<p class="small muted mt-12">${paceText}</p>`}
 
     <button class="btn primary block mt-12" onClick=${() => openWeightEntry(today)}><${Icon} name="plus" />${t('weight.log')}</button>
 

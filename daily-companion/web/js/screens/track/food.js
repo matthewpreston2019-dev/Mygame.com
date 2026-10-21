@@ -12,7 +12,7 @@ import { Ring, Bar, SheetFrame, Field, Seg, Toggle, Empty, confirmDialog } from 
 import { Icon } from '../../components/icons.js';
 import { DateNav } from '../../components/datenav.js';
 import { openSheet, toast, haptic } from '../../lib/ui.js';
-import { num } from '../onboarding.js';
+import { num, wholeNum } from './numbers.js';
 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_TIME = { breakfast: '08:00', lunch: '12:30', dinner: '19:00', snack: '16:00' };
@@ -33,14 +33,19 @@ function eatenAt(date, meal, tz) {
 
 export function FoodSection() {
   const { date: today, tz } = useClock();
-  const [date, setDate] = useState(today);
+  // Only a day you picked yourself is kept. Otherwise the screen follows the
+  // clock, so it moves on to the new day after midnight (the app can stay
+  // open in the background overnight).
+  const [picked, setPicked] = useState(null);
+  const date = picked ?? today;
+  const pick = (d) => setPicked(d === today ? null : d);
   const s = store.settings();
   const day = store.stats().day(date);
   const left = s.targets.kcal - day.kcal;
   const byMeal = MEALS.map((m) => [m, day.foods.filter((f) => f.meal === m)]).filter(([, list]) => list.length);
 
   return html`
-    <${DateNav} date=${date} today=${today} onChange=${setDate} />
+    <${DateNav} date=${date} today=${today} onChange=${pick} />
     <div class="card">
       <div class="row" style="gap:16px">
         <${Ring} value=${day.kcal / s.targets.kcal} size=${92} stroke=${9} color=${day.kcal > s.targets.kcal * 1.1 ? 'var(--danger)' : 'var(--sage)'}>
@@ -68,7 +73,7 @@ export function FoodSection() {
         </button>`)}
       </div>`)}
 
-    <${FoodHistory} today=${today} onPick=${setDate} />`;
+    <${FoodHistory} today=${today} onPick=${pick} />`;
 }
 
 function FoodHistory({ today, onPick }) {
@@ -132,7 +137,8 @@ function FoodForm({ date, food, close }) {
     const name = f.name.trim();
     if (!name) e.name = t('validate.required');
     if (name.length > 80) e.name = t('validate.tooLong', { n: 80 });
-    const kcal = num(f.kcal), protein = f.protein === '' ? 0 : num(f.protein);
+    // kcal is a whole number, so "1,200" or "1.200" means 1200 (not 1.2).
+    const kcal = wholeNum(f.kcal), protein = f.protein === '' ? 0 : num(f.protein);
     if (!(Number.isFinite(kcal) && kcal >= 0 && kcal <= 10000)) e.kcal = t('validate.range', { min: 0, max: 10000 });
     if (!(Number.isFinite(protein) && protein >= 0 && protein <= 1000)) e.protein = t('validate.range', { min: 0, max: 1000 });
     else if (Number.isFinite(kcal) && protein * 4 > kcal + 20 && kcal > 0) e.protein = t('food.proteinTooHigh');

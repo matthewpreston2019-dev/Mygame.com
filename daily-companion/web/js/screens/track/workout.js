@@ -13,7 +13,7 @@ import { Empty, SheetFrame, confirmDialog } from '../../components/common.js';
 import { Icon } from '../../components/icons.js';
 import { openSheet, toast, confetti, haptic } from '../../lib/ui.js';
 import { ExercisePicker } from '../settings/templates.js';
-import { num } from '../onboarding.js';
+import { num, wholeNum } from './numbers.js';
 
 const LIVE_HOURS = 8;          // an unfinished workout older than this is treated as finished
 const REST_SECONDS = 90;
@@ -248,7 +248,7 @@ function SetRow({ workout, ex, index, row, prev, best, hasHistory }) {
 
   function values() {
     const weight = w.trim() === '' ? (phW === '' ? 0 : num(phW)) : num(w);
-    const reps = r.trim() === '' ? (phR === '' ? NaN : num(phR)) : num(r);
+    const reps = r.trim() === '' ? (phR === '' ? NaN : wholeNum(phR)) : wholeNum(r);
     return { weight, reps };
   }
   function valid({ weight, reps }) {
@@ -283,11 +283,18 @@ function SetRow({ workout, ex, index, row, prev, best, hasHistory }) {
   }
 
   // Editing a set you already ticked updates it when you leave the field.
+  // Same rules as ticking: a bad value (e.g. 1025 kg or -3 reps) is not
+  // saved. You get the same message and the saved numbers come back.
   function onBlur() {
     if (!row) return;
     const v = values();
-    if (!Number.isFinite(v.weight) || !Number.isInteger(v.reps)) return;
-    if (Number(row.weight) !== v.weight || row.reps !== v.reps) save({ weight: v.weight, reps: v.reps });
+    if (!valid(v)) {
+      setW(row.weight != null ? String(Number(row.weight)) : '');
+      setR(row.reps != null ? String(row.reps) : '');
+      return;
+    }
+    const weight = Math.round(v.weight * 100) / 100;
+    if (Number(row.weight) !== weight || row.reps !== v.reps) save({ weight, reps: v.reps });
   }
 
   return html`

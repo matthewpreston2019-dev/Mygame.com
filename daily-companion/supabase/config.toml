@@ -1,0 +1,23 @@
+# Supabase CLI settings, read by `supabase functions deploy`.
+#
+# verify_jwt = false: the Supabase gateway must NOT demand a signed-in user's
+# token before these functions run. Each one checks the caller itself:
+#   coach-tick – the x-cron-secret header (sent by the every-minute scheduler)
+#   steps      – the x-steps-token header (sent by the iOS Shortcut)
+#   account    – sign-up / password recovery work while signed out
+#   push       – checks your sign-in token in its own code
+# If this is missing, a deploy turns the check back on and the scheduler, the
+# Shortcut and password recovery all fail with "401" before any code runs.
+project_id = "daily-companion"
+
+[functions.account]
+verify_jwt = false
+
+[functions.push]
+verify_jwt = false
+
+[functions.steps]
+verify_jwt = false
+
+[functions.coach-tick]
+verify_jwt = false

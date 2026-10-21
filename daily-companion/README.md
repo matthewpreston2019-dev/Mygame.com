@@ -192,6 +192,14 @@ daily-companion/
 - **Anything in `web/js/shared/`** is also used by the server. After editing it,
   run `node scripts/sync-shared.mjs` and redeploy the Edge Functions (or ask
   Claude: "sync shared code and redeploy the coach-tick function").
+- **Deploying Edge Functions:** from `daily-companion/`, run
+  `supabase link --project-ref <your-project-ref>` once, then
+  `supabase functions deploy <name>` — `supabase/config.toml` keeps the
+  gateway's JWT check off (`verify_jwt = false`) for all four functions. They
+  check the caller themselves (cron secret, steps token, your sign-in), and
+  with the check on, the scheduler, the Shortcut and password recovery get
+  "401". Deploying another way (dashboard, MCP, a different folder)? Turn
+  **Verify JWT** off, or add `--no-verify-jwt`.
 - **Database changes:** add a new numbered file in `supabase/migrations/` and
   apply it in the Supabase dashboard → SQL Editor.
 

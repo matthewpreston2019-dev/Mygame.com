@@ -4,7 +4,7 @@
 // plus a Reports view with today's summary and weekly reports.
 // =============================================================================
 
-import { html, useEffect, useRef, useState } from '../lib/preact.js';
+import { html, useEffect, useState } from '../lib/preact.js';
 import * as store from '../lib/store.js';
 import { t, fmtDate, fmtDuration, fmtNum, fmtClock, getLang } from '../lib/i18n.js';
 import { useClock } from '../lib/clock.js';
@@ -19,7 +19,9 @@ import { openStudyEntry } from './track/study.js';
 import { toast, haptic } from '../lib/ui.js';
 
 export function CoachScreen({ path }) {
-  const [view, setView] = useState(path[1] === 'reports' ? 'reports' : 'feed');
+  // The view comes from the address (#/coach or #/coach/reports), so links like
+  // "Open report" or a tapped notification always switch to the right view.
+  const view = path[1] === 'reports' ? 'reports' : 'feed';
   return html`<div class="screen">
     <div class="screen-head">
       <div class="coach-head grow">
@@ -27,7 +29,7 @@ export function CoachScreen({ path }) {
         <div><h1 class="title" style="font-size:26px">${t('tabs.coach')}</h1><p class="subtitle">${t('coach.subtitle')}</p></div>
       </div>
     </div>
-    <${Seg} value=${view} onChange=${(v) => { setView(v); navigate(v === 'reports' ? 'coach/reports' : 'coach', { replace: true }); }}
+    <${Seg} value=${view} onChange=${(v) => navigate(v === 'reports' ? 'coach/reports' : 'coach', { replace: true })}
       options=${[{ value: 'feed', label: t('coach.feed') }, { value: 'reports', label: t('coach.reports') }]} />
     <div class="mt-16">${view === 'feed' ? html`<${Feed} />` : html`<${Reports} />`}</div>
   </div>`;
@@ -41,22 +43,29 @@ function Feed() {
   const messages = store.rows('coach_messages')
     .filter((m) => m.date >= addDays(today, -45))
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
-  const endRef = useRef(null);
   const count = messages.length;
+  // All unread coach messages, also ones older than the 45 days shown here —
+  // otherwise those would keep the tab dot and app badge lit forever.
+  const unread = store.rows('coach_messages').filter((m) => m.kind === 'coach' && !m.read_at);
 
-  // Open at the newest message; follow new ones as they arrive.
-  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [count]);
+  // Open at the newest message; follow new ones as they arrive. The feed is the
+  // end of the page, so we scroll to the very bottom: the page's bottom padding
+  // keeps the last message and the chips above the tab bar. It waits one frame
+  // so it runs after the app's "new tab → scroll to top".
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => scrollTo(0, document.documentElement.scrollHeight));
+    return () => cancelAnimationFrame(raf);
+  }, [count]);
 
   // Seeing the feed marks coach messages as read (clears the badge).
   useEffect(() => {
-    const unread = messages.filter((m) => m.kind === 'coach' && !m.read_at);
     if (!unread.length) return;
     const timer = setTimeout(() => {
       const now = new Date().toISOString();
       for (const m of unread) store.put('coach_messages', { id: m.id, read_at: now });
     }, 800);
     return () => clearTimeout(timer);
-  }, [count]);
+  }, [count, unread.length]);
 
   // Ask the coach for a summary right now (written locally, saved to the feed).
   function askSummary() {
@@ -83,7 +92,6 @@ function Feed() {
         lastDate = m.date;
         return html`${sep}<${Message} m=${m} today=${today} tz=${tz} />`;
       })}
-      <div ref=${endRef}></div>
     </div>
     <div class="chips mt-16">
       <button class="chip" onClick=${askPlan}>📋 ${t('coach.askPlan')}</button>
@@ -145,7 +153,11 @@ function QuickStudy({ date }) {
 
 function Reports() {
   const { date: today } = useClock();
-  const [ws, setWs] = useState(weekStart(today));
+  // How many weeks back you're looking (0 = this week). Storing the offset
+  // instead of a date keeps "this week" correct when a new week starts while
+  // the app stays open.
+  const [back, setBack] = useState(0);
+  const ws = addDays(weekStart(today), -7 * back);
   const s = store.settings();
   const stats = store.stats();
   const lang = getLang();
@@ -153,13 +165,14 @@ function Reports() {
   const sm = stats.summary(today);
   const ctx = { lang, settings: s, stats, date: today, templates: store.rows('workout_templates') };
   const verdict = weeklyText(r, ctx).split('\n').filter(Boolean).pop();
-  const isCurrent = ws === weekStart(today);
+  const isCurrent = back === 0;
 
-  const metric = (emoji, label, value, ratio, sub) => html`<div class="li" style="align-items:flex-start;padding-top:12px;padding-bottom:12px">
+  // over = show the bar red (used for kcal: more than 10% above target).
+  const metric = (emoji, label, value, ratio, sub, over) => html`<div class="li" style="align-items:flex-start;padding-top:12px;padding-bottom:12px">
     <span style="font-size:20px;width:26px;text-align:center">${emoji}</span>
     <div class="grow">
       <div class="row between"><span class="label">${label}</span><span class="bold tnum">${value}</span></div>
-      ${ratio != null && html`<div class="mt-8"><${Bar} value=${ratio} thin /></div>`}
+      ${ratio != null && html`<div class="mt-8"><${Bar} value=${ratio} over=${over} thin /></div>`}
       ${sub && html`<div class="tiny faint mt-4">${sub}</div>`}
     </div>
   </div>`;
@@ -169,7 +182,7 @@ function Reports() {
     <div class="list">
       ${metric('📚', t('today.study'), sm.studyGoal ? `${fmtDuration(sm.studyMin)} / ${fmtDuration(sm.studyGoal)}` : fmtDuration(sm.studyMin), sm.studyGoal ? sm.studyMin / sm.studyGoal : null)}
       ${sm.gymPlanned && metric('🏋️', t('track.workout'), sm.gymDone ? '✅' : '—', null)}
-      ${metric('🍽', 'kcal', `${fmtNum(sm.kcal)} / ${fmtNum(sm.kcalTarget)}`, sm.kcal / sm.kcalTarget, sm.foodsLogged ? null : t('report.noFoodYet'))}
+      ${metric('🍽', 'kcal', `${fmtNum(sm.kcal)} / ${fmtNum(sm.kcalTarget)}`, sm.kcal / sm.kcalTarget, sm.foodsLogged ? null : t('report.noFoodYet'), sm.kcal > sm.kcalTarget * 1.1)}
       ${metric('🥩', t('food.protein'), `${fmtNum(Math.round(sm.protein))} / ${sm.proteinTarget} g`, sm.protein / sm.proteinTarget)}
       ${metric('👟', t('steps.title'), sm.steps == null ? '–' : `${fmtNum(sm.steps)} / ${fmtNum(sm.stepsGoal)}`, sm.steps == null ? null : sm.steps / sm.stepsGoal, sm.steps == null ? t('report.noStepsYet') : null)}
       ${metric('⚡', t('today.quests'), `${sm.quests.done}/${sm.quests.applicable}`, sm.quests.applicable ? sm.quests.ratio : null)}
@@ -177,9 +190,9 @@ function Reports() {
 
     <div class="section-title">${t('coach.week')}</div>
     <div class="cal-nav">
-      <button class="icon-btn" aria-label=${t('common.previous')} onClick=${() => setWs(addDays(ws, -7))}><${Icon} name="back" class="flip" /></button>
+      <button class="icon-btn" aria-label=${t('common.previous')} onClick=${() => setBack(back + 1)}><${Icon} name="back" class="flip" /></button>
       <div class="grow center bold">${fmtDate(ws, 'dayMonth')} – ${fmtDate(addDays(ws, 6), 'dayMonth')}${isCurrent ? html`<div class="tiny faint" style="font-weight:500">${t('report.soFar')}</div>` : ''}</div>
-      <button class="icon-btn" aria-label=${t('common.next')} disabled=${isCurrent} style=${isCurrent ? 'opacity:.3' : ''} onClick=${() => setWs(addDays(ws, 7))}><${Icon} name="chev" class="flip" /></button>
+      <button class="icon-btn" aria-label=${t('common.next')} disabled=${isCurrent} style=${isCurrent ? 'opacity:.3' : ''} onClick=${() => setBack(Math.max(0, back - 1))}><${Icon} name="chev" class="flip" /></button>
     </div>
     ${r.daysCounted === 0
       ? html`<${Empty} emoji="📊" text=${t('report.future')} />`
@@ -188,7 +201,7 @@ function Reports() {
       <div class="list">
         ${metric('📚', t('today.study'), `${fmtDuration(r.study.minutes)} / ${fmtDuration(r.study.goal)}`, r.study.goal ? r.study.minutes / r.study.goal : null, t('report.daysOnTarget', { n: r.study.daysHit, total: r.study.daysPlanned }))}
         ${metric('🏋️', t('report.gym'), `${r.gym.done}/${r.gym.planned}`, r.gym.planned ? r.gym.done / r.gym.planned : null)}
-        ${metric('🍽', t('report.avgKcal'), r.food.avgKcal == null ? '–' : `${fmtNum(r.food.avgKcal)} / ${fmtNum(r.food.kcalTarget)}`, r.food.avgKcal == null ? null : r.food.avgKcal / r.food.kcalTarget, t('report.loggedDays', { n: r.food.loggedDays, total: r.daysCounted }))}
+        ${metric('🍽', t('report.avgKcal'), r.food.avgKcal == null ? '–' : `${fmtNum(r.food.avgKcal)} / ${fmtNum(r.food.kcalTarget)}`, r.food.avgKcal == null ? null : r.food.avgKcal / r.food.kcalTarget, t('report.loggedDays', { n: r.food.loggedDays, total: r.daysCounted }), r.food.avgKcal > r.food.kcalTarget * 1.1)}
         ${metric('🥩', t('report.avgProtein'), r.food.avgProtein == null ? '–' : `${fmtNum(r.food.avgProtein)} / ${r.food.proteinTarget} g`, r.food.avgProtein == null ? null : r.food.avgProtein / r.food.proteinTarget, r.food.loggedDays ? t('report.daysOnTarget', { n: r.food.proteinDaysHit, total: r.food.loggedDays }) : null)}
         ${metric('👟', t('report.avgSteps'), r.steps.avg == null ? '–' : `${fmtNum(r.steps.avg)} / ${fmtNum(r.steps.goal)}`, r.steps.avg == null ? null : r.steps.avg / r.steps.goal, t('report.daysOnTarget', { n: r.steps.daysHit, total: r.steps.loggedDays }))}
         ${metric('😴', t('sleep.score'), r.sleep.score == null ? '–' : `${r.sleep.score}/100`, r.sleep.score == null ? null : r.sleep.score / 100, r.sleep.score == null ? t('sleep.needMore', { n: r.sleep.nights }) : t('sleep.avgBed', { time: r.sleep.avgBed }))}

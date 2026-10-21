@@ -83,6 +83,21 @@ export async function encryptPayload(plaintext, p256dh, auth) {
 }
 
 /**
+ * Shorten a notification text to at most `max` characters, ending in "…".
+ * Counts real characters (code points), so an emoji is never cut in half
+ * (half an emoji shows up as a broken "�"). Prefers to stop at a line break.
+ */
+export function shortenText(text, max = 380) {
+  const str = String(text ?? '');
+  const chars = Array.from(str);
+  if (chars.length <= max) return str;
+  let cut = chars.slice(0, max - 1).join('');
+  const nl = cut.lastIndexOf('\n');
+  if (nl > cut.length * 0.6) cut = cut.slice(0, nl); // keep whole lines if that loses little
+  return cut.trimEnd() + '…';
+}
+
+/**
  * Send one push. `sub` = { endpoint, p256dh, auth }, `payload` = any JSON.
  * Returns { ok, status, gone } — gone means the subscription no longer exists
  * (app deleted / permission revoked) and should be removed.

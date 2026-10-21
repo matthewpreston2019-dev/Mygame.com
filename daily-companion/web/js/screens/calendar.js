@@ -7,7 +7,7 @@ import { html, useEffect, useRef, useState } from '../lib/preact.js';
 import * as store from '../lib/store.js';
 import { t, fmtDate, getLang, ltr } from '../lib/i18n.js';
 import { useClock } from '../lib/clock.js';
-import { addDays, weekStart, dateRange, zonedParts, zonedTimeToDate, toMinutes, toHHMM, isHHMM, dateInTz } from '../shared/time.js';
+import { addDays, weekStart, dateRange, zonedParts, zonedTimeToDate, toHHMM, isHHMM, dateInTz } from '../shared/time.js';
 import { blockName, splitName } from '../shared/names.js';
 import { Seg, SheetFrame, Field, confirmDialog } from '../components/common.js';
 import { Icon } from '../components/icons.js';
@@ -64,7 +64,11 @@ function layout(items) {
 export function CalendarScreen() {
   const { date: today, minutes, tz } = useClock();
   const [view, setView] = useState('day');
-  const [sel, setSel] = useState(today);
+  // Only a day you picked is stored; otherwise it's always today, so the
+  // calendar moves on to the new day at midnight even if the app stays open.
+  const [picked, setPicked] = useState(null);
+  const sel = picked ?? today;
+  const setSel = (d) => setPicked(d === today ? null : d);
   const lang = getLang();
   const templates = store.rows('workout_templates');
   const ws = weekStart(sel);
@@ -195,15 +199,21 @@ function EventForm({ event, date, close }) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) e.date = t('validate.required');
     if (!isHHMM(f.start)) e.start = t('validate.time');
     if (!isHHMM(f.end)) e.end = t('validate.time');
-    if (!e.start && !e.end && toMinutes(f.end) <= toMinutes(f.start)) e.end = t('calendar.endAfterStart');
+    // Compare the real moments, not the clock times: on the night the clocks
+    // change, 02:30–03:00 can be an end *before* the start (the server would
+    // reject that and the event would stay on this phone only).
+    const okTimes = !e.date && !e.start && !e.end;
+    const st = okTimes ? zonedTimeToDate(f.date, f.start, tz) : null;
+    const en = okTimes ? zonedTimeToDate(f.date, f.end, tz) : null;
+    if (okTimes && en <= st) e.end = t('calendar.endAfterStart');
     if (f.notes.length > 500) e.notes = t('validate.tooLong', { n: 500 });
     setErrors(e);
     if (Object.keys(e).length) return;
     const row = store.put('events', {
       ...(event ? { id: event.id } : {}),
       title, kind: f.kind, notes: f.notes.trim() || null,
-      starts_at: zonedTimeToDate(f.date, f.start, tz).toISOString(),
-      ends_at: zonedTimeToDate(f.date, f.end, tz).toISOString(),
+      starts_at: st.toISOString(),
+      ends_at: en.toISOString(),
     });
     // An exam in the calendar also adapts your plan (prep the day before, lighter after).
     if (f.kind === 'exam') {

@@ -5,11 +5,13 @@
 // createStats(data, settings) takes plain arrays of rows (no deleted rows) and
 // returns helper functions. The app builds it from its local cache; the
 // server builds it from a database query — so both always agree.
+// Optional third argument: { today: 'YYYY-MM-DD' } (default: today in your
+// time zone). Days before `today` are history — see questsFor.
 // Shared with the server — keep it free of browser APIs.
 // =============================================================================
 
 import { buildDayPlan, gymWeekInfo } from './plan.js';
-import { addDays, weekStart, weekdayOf, dateRange, zonedParts, toMinutes, toHHMM } from './time.js';
+import { addDays, weekStart, weekdayOf, dateRange, zonedParts, toMinutes, toHHMM, dateInTz } from './time.js';
 
 /** A day counts toward your streak when at least 75% of its quests are done. */
 export const STREAK_THRESHOLD = 0.75;
@@ -51,11 +53,14 @@ function sd(values) {
   return Math.sqrt(values.reduce((a, v) => a + (v - mean) ** 2, 0) / values.length);
 }
 
-export function createStats(rawData, settings) {
+export function createStats(rawData, settings, opts = {}) {
   const data = {};
   for (const t of EMPTY_TABLES) data[t] = (rawData[t] || []).filter((r) => !r.deleted);
   const tz = settings.timezone;
   const targets = settings.targets;
+  // Today's date, fixed when the stats are built (the app rebuilds them after
+  // every change). Days before it are history — see questsFor.
+  const asOf = opts.today || dateInTz(tz);
 
   const foodsBy = groupBy(data.foods, 'date');
   const stepsBy = mapBy(data.steps, 'date');
@@ -68,7 +73,29 @@ export function createStats(rawData, settings) {
   const sleepBy = mapBy(data.sleep_logs, 'date');
   const overrideBy = mapBy(data.day_plans, 'date');
   const questLog = new Map(data.quest_log.map((r) => [`${r.quest_id}|${r.date}`, r]));
-  const quests = data.quests.filter((q) => q.active).sort((a, b) => a.sort - b.sort);
+  // All quests, including switched-off ones: a quest you switch off today
+  // still counted on the days before (see questLiveOn).
+  const quests = data.quests.slice().sort((a, b) => a.sort - b.sort);
+  // 'YYYY-MM-DD' of a date or timestamp column (null when empty).
+  const dayOf = (v) => (!v ? null : String(v).length > 10 ? dateInTz(tz, new Date(v)) : String(v));
+  const createdOn = new Map(quests.map((q) => [q.id, dayOf(q.created_at)]));
+  const offSince = new Map(quests.map((q) => [q.id, dayOf(q.inactive_since)]));
+
+  /**
+   * Did this quest exist, and was it switched on, on `date`?
+   *   created_at     – a quest doesn't count on days before you added it
+   *   inactive_since – a switched-off quest still counts on the days before
+   *                    you switched it off (but not from that day on)
+   * Both columns are optional: without them a quest counts on every day
+   * while it's switched on.
+   */
+  function questLiveOn(q, date) {
+    const created = createdOn.get(q.id);
+    if (created && date < created) return false;
+    if (q.active) return true;
+    const off = offSince.get(q.id);
+    return !!off && date < off;
+  }
 
   const planCache = new Map();
   /** The plan for a date (cached). */
@@ -109,15 +136,22 @@ export function createStats(rawData, settings) {
   }
 
   /**
-   * Status of every active quest on a date.
+   * Status of every quest that was switched on on a date.
    * Auto quests (study/steps/workout/protein) follow your data and plan;
    * manual ones follow what you ticked.
+   *
+   * Past days are history: a quest with an XP entry (quest_log) on a day
+   * before today stays applicable and done on that day — it was earned under
+   * the targets and schedule you had back then. So raising a target, changing
+   * a quest's days or your gym days later doesn't take back XP or break your
+   * streak. Today always follows the live data (delete a meal → XP goes back).
    */
   function questsFor(date) {
     const plan = planFor(date);
     const d = day(date);
     const wd = weekdayOf(date);
-    return quests.map((q) => {
+    const past = date < asOf;
+    return quests.filter((q) => questLiveOn(q, date)).map((q) => {
       const onDay = (q.days || []).map(Number).includes(wd);
       let applicable = onDay, value = 0, target = 1, done = false;
       switch (q.kind) {
@@ -141,6 +175,7 @@ export function createStats(rawData, settings) {
           value = log ? 1 : 0; done = !!log;
         }
       }
+      if (past && questLog.has(`${q.id}|${date}`)) { applicable = true; done = true; }
       return { quest: q, applicable, done: applicable && done, value, target, progress: target > 0 ? Math.min(1, value / target) : 0 };
     });
   }
@@ -187,14 +222,17 @@ export function createStats(rawData, settings) {
 
   /**
    * Sleep consistency over the 7 nights ending on `endDate` (wake-up dates).
+   * With `startDate`, nights before it are left out (a week in progress
+   * shouldn't mix in last week's nights).
    * Score (0–100) = 70% consistency + 30% on-time.
    *   consistency: 100 when you go to bed and wake at the same times every
    *                day; −50 for every hour of variation (standard deviation).
    *   on-time:     share of nights in bed by lights-out + 15 min.
    * Needs at least 3 logged nights.
    */
-  function sleepScore(endDate) {
-    const logs = dateRange(addDays(endDate, -6), endDate).map((d) => sleepBy.get(d)).filter(Boolean);
+  function sleepScore(endDate, startDate) {
+    const from = startDate && startDate > addDays(endDate, -6) ? startDate : addDays(endDate, -6);
+    const logs = dateRange(from, endDate).map((d) => sleepBy.get(d)).filter(Boolean);
     if (logs.length < 3) return { score: null, nights: logs.length };
     // Bedtimes as minutes after noon, so 23:30 and 00:30 are 60 min apart, not 23 h.
     const bed = logs.map((l) => { const p = zonedParts(new Date(l.slept_at), tz); return (p.hour * 60 + p.minute + 720) % 1440; });
@@ -245,7 +283,9 @@ export function createStats(rawData, settings) {
     const studyDaysPlanned = per.filter((x) => x.plan.studyGoal > 0).length;
     const studyDaysHit = per.filter((x) => x.plan.studyGoal > 0 && x.d.studyMin >= x.plan.studyGoal).length;
 
-    const gymPlanned = Object.values(settings.schedule.gymDays || {}).filter(Boolean).length;
+    // Scheduled sessions on the days counted so far (the whole week on Sunday),
+    // so a Monday report isn't judged against Wednesday's and Friday's sessions.
+    const gymPlanned = per.filter((x) => (settings.schedule.gymDays || {})[x.plan.weekday]).length;
     const gymDone = countedWorkouts.filter((w) => w.date >= ws && w.date <= end).length;
 
     const foodDays = per.filter((x) => x.d.foods.length > 0);
@@ -272,7 +312,7 @@ export function createStats(rawData, settings) {
       gym: { done: gymDone, planned: gymPlanned },
       food: { loggedDays: foodDays.length, avgKcal, avgProtein, kcalTarget: targets.kcal, proteinTarget: targets.protein, proteinDaysHit, kcalDaysOnTarget },
       steps: { avg: avgSteps, goal: targets.steps, loggedDays: stepDays.length, daysHit: stepsDaysHit },
-      sleep: sleepScore(last),
+      sleep: sleepScore(last, ws),
       checkins,
       quests: { days: questDays.length, goodDays: perfectDays },
       streak: streak(today),

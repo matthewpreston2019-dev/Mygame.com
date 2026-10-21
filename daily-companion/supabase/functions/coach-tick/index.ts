@@ -20,7 +20,30 @@ import { mergeSettings } from '../_shared/app/defaults.js';
 import { createStats } from '../_shared/app/stats.js';
 import { dueMessages, composeMessage } from '../_shared/app/coach.js';
 
-const HISTORY_DAYS = 90; // data loaded for summaries, reports and streaks
+const HISTORY_DAYS = 90; // data loaded for summaries and reports
+// The weekly report shows your current streak, which looks back up to 730
+// days (stats.js), plus a week for the gym catch-up rule. Loaded once a week.
+const STREAK_HISTORY_DAYS = 740;
+
+// Supabase returns at most 1000 rows per request (the API's "max rows"
+// setting), even with .limit(5000). So we read in pages of 1000. Keep PAGE
+// at or below that setting.
+const PAGE = 1000;
+// A unique sort order per table, so pages never skip or repeat a row.
+const ORDER: Record<string, string[]> = {
+  foods: ['date', 'id'], study_sessions: ['date', 'id'], workouts: ['date', 'id'],
+  quest_log: ['date', 'quest_id'],
+  quests: ['id'], workout_templates: ['id'],
+  // one row per day:
+  steps: ['date'], checkins: ['date'], sleep_logs: ['date'], day_plans: ['date'], weights: ['date'],
+};
+
+/** How long a push may wait for a phone that's offline (seconds). "Gym in 30 min" is useless hours later. */
+function pushTtl(key: string): number {
+  if (key === 'plan' || key === 'summary' || key === 'weekly') return 12 * 3600;
+  if (key === 'morning_exam') return 3 * 3600;
+  return 30 * 60;
+}
 
 Deno.serve(async (req) => {
   const db = admin();
@@ -47,13 +70,20 @@ Deno.serve(async (req) => {
   return json({ ok: true, at: now.toISOString(), results });
 });
 
+/** All live rows of a table for a user (optionally within a date range), page by page. */
 async function rows(db: SupabaseClient, table: string, userId: string, fromDate?: string, toDate?: string) {
-  let q = db.from(table).select('*').eq('user_id', userId).eq('deleted', false);
-  if (fromDate) q = q.gte('date', fromDate);
-  if (toDate) q = q.lte('date', toDate);
-  const { data, error } = await q.limit(5000);
-  if (error) throw error;
-  return data || [];
+  const out = [];
+  for (let off = 0; ; off += PAGE) {
+    // Build the query fresh for every page (query builders can't be reused).
+    let q = db.from(table).select('*').eq('user_id', userId).eq('deleted', false);
+    if (fromDate) q = q.gte('date', fromDate);
+    if (toDate) q = q.lte('date', toDate);
+    for (const col of ORDER[table] || ['id']) q = q.order(col);
+    const { data, error } = await q.range(off, off + PAGE - 1);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < PAGE) return out; // last page
+  }
 }
 
 async function tickUser(db: SupabaseClient, profile: { user_id: string; settings: unknown }, now: Date, dryRun: boolean) {
@@ -72,28 +102,27 @@ async function tickUser(db: SupabaseClient, profile: { user_id: string; settings
     rows(db, 'workouts', uid, ws, date),
     db.from('coach_messages').select('key').eq('user_id', uid).eq('date', date).then((r) => r.data || []),
   ]);
-  const weekSets = weekWorkouts.length
-    ? (await db.from('workout_sets').select('*').in('workout_id', weekWorkouts.map((w) => w.id)).eq('deleted', false)).data || []
-    : [];
-  const quick = createStats({ day_plans: dayPlans, workouts: weekWorkouts, workout_sets: weekSets }, settings);
+  const weekSets = weekWorkouts.length ? await setsFor(db, weekWorkouts.map((w) => w.id)) : [];
+  const quick = createStats({ day_plans: dayPlans, workouts: weekWorkouts, workout_sets: weekSets }, settings, { today: date });
   const plan = quick.planFor(date);
   const sent = new Set(sentToday.map((m: { key: string }) => m.key));
   const due = dueMessages(plan, settings, nowMin, sent);
   if (!due.length) return { user: uid, date, due: 0 };
 
   // ---- Stage 2: load recent history and write the messages ----
-  const from = addDays(date, -HISTORY_DAYS);
+  const from = addDays(date, due.some((m) => m.key === 'weekly') ? -STREAK_HISTORY_DAYS : -HISTORY_DAYS);
   const [foods, steps, study, workouts, checkins, sleep, quests, questLog, plans, weights, templates] = await Promise.all([
     rows(db, 'foods', uid, from), rows(db, 'steps', uid, from), rows(db, 'study_sessions', uid, from),
     rows(db, 'workouts', uid, from), rows(db, 'checkins', uid, from), rows(db, 'sleep_logs', uid, from),
-    rows(db, 'quests', uid), rows(db, 'quest_log', uid, from), rows(db, 'day_plans', uid, from, addDays(date, 2)),
+    // day_plans a week ahead: "next gym session" looks at the coming days' plans.
+    rows(db, 'quests', uid), rows(db, 'quest_log', uid, from), rows(db, 'day_plans', uid, from, addDays(date, 8)),
     rows(db, 'weights', uid, from), rows(db, 'workout_templates', uid),
   ]);
   const sets = workouts.length ? await setsFor(db, workouts.map((w) => w.id)) : [];
   const stats = createStats({
     foods, steps, study_sessions: study, workouts, workout_sets: sets, checkins, sleep_logs: sleep,
     quests, quest_log: questLog, day_plans: plans, weights, workout_templates: templates,
-  }, settings);
+  }, settings, { today: date });
   const ctx = { lang: settings.language, settings, stats, date, templates };
 
   const out = [];
@@ -116,7 +145,7 @@ async function tickUser(db: SupabaseClient, profile: { user_id: string; settings
     if (settings.notify[m.pref] !== false) {
       const { count } = await db.from('coach_messages').select('id', { count: 'exact', head: true })
         .eq('user_id', uid).eq('kind', 'coach').eq('deleted', false).is('read_at', null);
-      const r = await sendToUser(db, uid, { title: msg.title, body: msg.body, url: './#/coach', tag: m.key, badge: count ?? undefined });
+      const r = await sendToUser(db, uid, { title: msg.title, body: msg.body, url: './#/coach', tag: m.key, badge: count ?? undefined }, { ttl: pushTtl(m.key) });
       push = { sent: r.sent, failed: r.failed };
     }
     out.push({ key: m.key, sent: true, push });
@@ -124,13 +153,18 @@ async function tickUser(db: SupabaseClient, profile: { user_id: string; settings
   return { user: uid, date, time: `${Math.floor(nowMin / 60)}:${String(nowMin % 60).padStart(2, '0')}`, messages: out };
 }
 
+/** All live sets of these workouts. */
 async function setsFor(db: SupabaseClient, ids: string[]) {
   const out = [];
-  // Keep URLs short: query in chunks.
+  // Keep URLs short: query in chunks of 150 workouts, each read page by page.
   for (let i = 0; i < ids.length; i += 150) {
-    const { data, error } = await db.from('workout_sets').select('*').in('workout_id', ids.slice(i, i + 150)).eq('deleted', false);
-    if (error) throw error;
-    out.push(...(data || []));
+    for (let off = 0; ; off += PAGE) {
+      const { data, error } = await db.from('workout_sets').select('*').in('workout_id', ids.slice(i, i + 150)).eq('deleted', false)
+        .order('id').range(off, off + PAGE - 1);
+      if (error) throw error;
+      out.push(...(data || []));
+      if (!data || data.length < PAGE) break; // last page of this chunk
+    }
   }
   return out;
 }

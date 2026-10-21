@@ -42,6 +42,17 @@ export function Splash({ text, action }) {
   </div></div>`;
 }
 
+// The session supabase saved on this device (or null). Offline with an
+// expired access token, getSession() answers null although you're still
+// signed in: supabase keeps this copy and refreshes it once you're online
+// (it deletes it itself, and reports SIGNED_OUT, if the login is really over).
+function storedSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem('dc.auth') || 'null');
+    return s?.refresh_token && s?.user?.id ? s : null;
+  } catch { return null; }
+}
+
 export function App() {
   const [session, setSession] = useState(undefined); // undefined = still checking
   const [, setVersion] = useState(0);
@@ -49,7 +60,11 @@ export function App() {
 
   // Auth state
   useEffect(() => {
-    supa.auth.getSession().then(({ data }) => setSession(data.session || null));
+    // Fall back to the saved session so the app still opens from the on-device
+    // cache when you start it offline.
+    supa.auth.getSession()
+      .then(({ data }) => setSession(data.session || storedSession()))
+      .catch(() => setSession(storedSession()));
     const { data } = supa.auth.onAuthStateChange((event, s) => {
       if (event === 'SIGNED_OUT') setSession(null);
       else if (s) setSession(s);
@@ -123,7 +138,9 @@ function Shell() {
   return html`
     <main class="app">
       ${store.status.offline && html`<div class="banner warn"><${Icon} name="offline" /><span class="grow">${t('sync.offlineBanner')}</span></div>`}
-      ${!store.status.offline && store.status.failed.length > 0 && html`<div class="banner danger"><${Icon} name="info" /><span class="grow">${t('sync.failed', { n: store.status.failed.length })}</span></div>`}
+      ${store.status.storageError && html`<div class="banner danger"><${Icon} name="info" /><span class="grow">${t('sync.storageError')}</span></div>`}
+      ${!store.status.offline && store.status.failed.length > 0 && html`<div class="banner danger"><${Icon} name="info" /><span class="grow">${t('sync.failed', { n: store.status.failed.length })}</span>
+        <button class="icon-btn plain" style="width:32px;height:32px;margin:-6px;color:inherit" aria-label=${t('common.close')} onClick=${store.clearFailed}><${Icon} name="x" /></button></div>`}
       <${Screen} key=${tab.id} path=${path} />
     </main>
     <nav class="tabbar" aria-label="Tabs"><div class="tabbar-inner">

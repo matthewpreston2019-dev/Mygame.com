@@ -9,7 +9,6 @@
 
 import { toMinutes, toHHMM, isHHMM, addDays, weekdayOf, weekStart } from './time.js';
 import { splitName, blockName, exerciseName, findTemplate } from './names.js';
-import { nextGymDate } from './plan.js';
 import { TEXT } from './coach-text.js';
 
 /** A message is still sent if the scheduler runs up to this many minutes late. */
@@ -70,7 +69,9 @@ export function messageSchedule(plan, settings) {
 
   const gym = block('gym');
   if (gym) {
-    const at = gym.startMin - 30;
+    // 30 min before — but not during an exam that ends shortly before the gym.
+    const exam = block('exam');
+    const at = exam && exam.startMin < gym.startMin ? Math.max(gym.startMin - 30, exam.endMin) : gym.startMin - 30;
     // If the reminder would land during school, the plan message covers it.
     if (!plan.freeFrom || at >= toMinutes(plan.freeFrom)) add('gym', 'gym', at);
     if (Number.isFinite(checkin) && gym.endMin <= checkin - 60) add('nudge_gym', 'nudges', checkin - 60);
@@ -83,7 +84,8 @@ export function messageSchedule(plan, settings) {
   }
   if (Number.isFinite(checkin)) {
     add('checkin', 'checkin', checkin);
-    add('summary', 'summary', checkin + 30);
+    // A late check-in (23:30 or later) still gets its summary, at 23:59.
+    add('summary', 'summary', Math.min(checkin + 30, 1439));
   }
   if (isHHMM(s.windDownAt)) add('winddown', 'winddown', toMinutes(s.windDownAt));
   if (plan.weekday === 0) add('weekly', 'weekly', toMinutes('19:00'));
@@ -124,8 +126,12 @@ export function composeMessage(key, ctx) {
       if (day.workouts.length) return null; // already trained
       const lines = [f(T.gym.pre, { split: split(plan.gym) })];
       const best = lastTopSet(plan.gym, ctx);
-      if (best) lines.push(f(T.gym.last, { exercise: exerciseName(best.exercise, lang), weight: best.weight, reps: best.reps }));
-      else lines.push(f(T.gym.first, { split: split(plan.gym) }));
+      if (best) {
+        // Weights are stored with up to 2 decimals (61.25 kg): show them exactly,
+        // not rounded to 1 decimal like other numbers (a string is left as is by fill).
+        const weight = new Intl.NumberFormat(LOCALES[lang] || 'en-GB', { maximumFractionDigits: 2 }).format(best.weight);
+        lines.push(f(T.gym.last, { exercise: exerciseName(best.exercise, lang), weight, reps: best.reps }));
+      } else lines.push(f(T.gym.first, { split: split(plan.gym) }));
       if (plan.gymCatchUp) lines.push(T.gym.catchUp);
       if (plan.examTomorrow) lines.push(T.gym.moderate);
       return { title, body: lines.join('\n'), data: { type: 'gym', split: plan.gym } };
@@ -147,7 +153,7 @@ export function composeMessage(key, ctx) {
     case 'nudge_gym': {
       if (!plan.gym || day.workouts.length) return null;
       if (plan.gymCatchUp) return { title, body: T.nudge.gymCatchUp, data: { type: 'nudge' } };
-      const next = nextGymDate(date, settings);
+      const next = nextGymDay(date, stats);
       return { title, body: f(T.nudge.gym, { day: next ? weekdayName(next, lang) : '–' }), data: { type: 'nudge' } };
     }
 
@@ -179,6 +185,19 @@ export function composeMessage(key, ctx) {
     default:
       return null;
   }
+}
+
+/**
+ * Next date after `date` (within a week) that has gym in its plan. Uses the
+ * real plans, so planner changes (rest day, skip gym) and weekend catch-up
+ * sessions count — not just the weekly gym days from the settings.
+ */
+function nextGymDay(date, stats) {
+  for (let i = 1; i <= 7; i++) {
+    const d = addDays(date, i);
+    if (stats.planFor(d).gym) return d;
+  }
+  return null;
 }
 
 /** Heaviest set of the first exercise from the last session of this split. */
@@ -229,7 +248,7 @@ export function planText(plan, ctx) {
     extras.push(f(T.plan.catchUp, { done, target: gymDays }));
   }
   if (plan.gymMoved) {
-    const next = nextGymDate(plan.date, settings);
+    const next = nextGymDay(plan.date, ctx.stats);
     extras.push(f(T.plan.gymMoved, { day: next ? weekdayName(next, lang) : '–' }));
   }
   if (plan.trimmed && !plan.gymMoved) extras.push(f(T.plan.trimmed, { time: settings.schedule.checkinAt }));
@@ -266,7 +285,10 @@ export function summaryText(sm, ctx) {
     if (sm.kcal > sm.kcalTarget * 1.1) lines.push(`   ${f(T.summary.overKcal, { n: sm.kcal - sm.kcalTarget })}`);
     results.push(['protein', Math.min(1, pr)]);
   } else {
+    // Not logging food is a miss too — otherwise a day with no food logged
+    // could still be called "Every goal hit".
     lines.push(`➖ ${T.summary.noFood}`);
+    results.push(['logging', 0]);
   }
   if (sm.steps != null) {
     const r = sm.steps / sm.stepsGoal;
@@ -279,7 +301,8 @@ export function summaryText(sm, ctx) {
   const hits = results.filter(([, r]) => r >= 1).length;
   const missed = results.find(([, r]) => r < 1);
   let verdict;
-  if (!results.length) verdict = T.summary.verdictNoData;
+  // Nothing to judge but the missing food log (e.g. a rest day) → ask for data.
+  if (results.every(([k]) => k === 'logging')) verdict = T.summary.verdictNoData;
   else if (hits === results.length) verdict = T.summary.verdictAll;
   else if (hits / results.length >= 0.6) verdict = f(T.summary.verdictGood, { thing: T.things[missed[0]] });
   else if (hits > 0) verdict = f(T.summary.verdictMixed, { thing: T.things[missed[0]] });
@@ -313,8 +336,12 @@ export function weeklyText(r, ctx) {
     ratios.push(['logging', 0]);
   }
   if (r.steps.loggedDays) {
-    lines.push(`👟 ${f(T.weekly.steps, { avg: r.steps.avg, goal: r.steps.goal, hit: r.steps.daysHit, days: r.steps.loggedDays })}`);
-    ratios.push(['steps', r.steps.avg / r.steps.goal]);
+    lines.push(`👟 ${f(T.weekly.steps, { avg: r.steps.avg, goal: r.steps.goal, hit: r.steps.daysHit, days: r.daysCounted })}`);
+    // The average only covers days that synced. With too few of them it says
+    // little, so flag it and keep steps out of the verdict (one good day
+    // shouldn't make steps "your best area").
+    if (r.steps.loggedDays >= Math.min(4, r.daysCounted)) ratios.push(['steps', r.steps.avg / r.steps.goal]);
+    else lines.push(`   ${f(T.weekly.fewStepDays, { days: r.steps.loggedDays, total: r.daysCounted })}`);
   } else lines.push(`👟 ${T.weekly.noSteps}`);
 
   if (r.sleep.score != null) {
@@ -342,7 +369,7 @@ export function weeklyText(r, ctx) {
  *   answer: { studied: bool|null, trained: bool|null }
  */
 export function checkinReply(answer, ctx) {
-  const { lang, settings, stats, date } = ctx;
+  const { lang, stats, date } = ctx;
   const T = textFor(lang);
   const f = (str, vars) => fill(str, vars, lang);
   const plan = stats.planFor(date);
@@ -357,7 +384,7 @@ export function checkinReply(answer, ctx) {
   if (answer.trained === true) out.push(T.reply.trainedYes);
   if (answer.trained === false) {
     if (plan.gym) {
-      const next = nextGymDate(date, settings);
+      const next = nextGymDay(date, stats);
       out.push(f(T.reply.trainedNo, { day: next ? weekdayName(next, lang) : '–' }));
     } else out.push(T.reply.trainedNoRest);
   }

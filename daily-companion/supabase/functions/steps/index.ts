@@ -12,10 +12,16 @@ import { admin, json, preflight } from '../_shared/http.ts';
 import { dateInTz, addDays, isDateStr } from '../_shared/app/time.js';
 import { mergeSettings } from '../_shared/app/defaults.js';
 
-/** Accepts 8123, "8123", "8.123" / "8,123" / "8 123" (thousands), "8123.0". */
+/**
+ * Accepts 8123, "8123", "8.123" / "8,123" / "8 123" (thousands), "8123.0".
+ * A missing or empty value is NaN (an error), never 0 — otherwise a failed
+ * Health read would wipe the day's real count.
+ */
 export function parseSteps(v: unknown): number {
+  if (v == null) return NaN;
   if (typeof v === 'number') return Math.round(v);
-  const s = String(v ?? '').trim().replace(/[\s'  ]/g, '');
+  const s = String(v).trim().replace(/[\s'  ]/g, '');
+  if (s === '') return NaN;
   if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return Number(s.replace(/[.,]/g, ''));
   const n = Number(s.replace(',', '.'));
   return Number.isFinite(n) ? Math.round(n) : NaN;
@@ -45,6 +51,9 @@ Deno.serve(async (req) => {
   if (error) { console.error(error); return json({ ok: false, error: 'Server error' }, 500); }
   if (!profile) return json({ ok: false, error: 'Invalid token — copy it again from the app' }, 401);
 
+  if (rawSteps == null || String(rawSteps).trim() === '') {
+    return json({ ok: false, error: 'Missing steps — send { "steps": 8123 } (nothing was saved)' }, 400);
+  }
   const steps = parseSteps(rawSteps);
   if (!Number.isInteger(steps) || steps < 0 || steps > 200000) return json({ ok: false, error: `Steps must be a number from 0 to 200000 (got "${String(rawSteps).slice(0, 30)}")` }, 400);
 
@@ -52,6 +61,19 @@ Deno.serve(async (req) => {
   const today = dateInTz(settings.timezone);
   const date = rawDate ? rawDate : today;
   if (!isDateStr(date) || date < addDays(today, -7) || date > addDays(today, 1)) return json({ ok: false, error: 'date must be YYYY-MM-DD within the last 7 days' }, 400);
+
+  // Within a day Apple Health's count only goes up. A lower number from the
+  // Shortcut for a day it already sent (e.g. a late run while the phone is
+  // locked and Health can't be read → 0) is a failed read: keep the stored
+  // value. Only an earlier Shortcut value is kept this way; a manual entry is
+  // replaced as before, and you can always correct a day by hand in the app.
+  const { data: existing, error: readErr } = await db.from('steps').select('steps, source, deleted')
+    .eq('user_id', profile.user_id).eq('date', date).maybeSingle();
+  if (readErr) { console.error(readErr); return json({ ok: false, error: 'Server error' }, 500); }
+  if (existing && !existing.deleted && existing.source === 'shortcut' && existing.steps > steps) {
+    const kept = existing.steps;
+    return json({ ok: true, date, steps: kept, kept: true, received: steps, goal: settings.targets.steps, goalReached: kept >= settings.targets.steps });
+  }
 
   const { error: upErr } = await db.from('steps').upsert({ user_id: profile.user_id, date, steps, source: 'shortcut', deleted: false }, { onConflict: 'user_id,date' });
   if (upErr) { console.error(upErr); return json({ ok: false, error: 'Could not save' }, 500); }

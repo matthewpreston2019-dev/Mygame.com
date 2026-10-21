@@ -135,8 +135,18 @@ export function buildDayPlan({ date, settings, override, nextOverride, gymWeek }
     // finish by check-in time. If they don't fit, trim in this order:
     // shorter break → shorter study (min 30) → move gym to another day →
     // whatever study still fits.
-    const cutoff = toMinutes(s.checkinAt) || 21 * 60;
-    const start = toMinutes(free);
+    // Check-in time is the cutoff; a missing/invalid one (or 00:00, which
+    // would leave no evening at all) falls back to 21:00.
+    const ci = toMinutes(s.checkinAt);
+    const cutoff = Number.isFinite(ci) && ci > 0 ? ci : 21 * 60;
+    let start = toMinutes(free);
+    // An exam that runs into the after-school time is a fixed block: start
+    // the evening after it, so relax/gym/study don't overlap the exam. The
+    // trimming below then fits them into the shorter evening.
+    if (plan.exam?.time) {
+      const examStart = toMinutes(plan.exam.time), examEnd = examStart + EXAM_MIN;
+      if (examEnd > start && examStart < cutoff) start = Math.max(start, examEnd);
+    }
     let relax = Number(s.relaxMin?.[type] ?? 60);
     let gymOn = !!gym;
     let st = study;
@@ -145,6 +155,8 @@ export function buildDayPlan({ date, settings, override, nextOverride, gymWeek }
     if (start + total() > cutoff && st > 30) st = Math.max(30, st - (start + total() - cutoff));
     if (start + total() > cutoff && gymOn) { gymOn = false; plan.gymMoved = true; st = study; }
     if (start + total() > cutoff) st = Math.max(0, cutoff - start - relax);
+    // Not even the break fits (e.g. an evening exam): keep what's left, maybe nothing.
+    if (start + total() > cutoff) relax = Math.max(0, cutoff - start);
     if (st < MIN_STUDY_BLOCK) st = 0;
     if (!gymOn) gym = null;
     study = st;

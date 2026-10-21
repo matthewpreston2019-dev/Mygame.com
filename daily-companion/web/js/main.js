@@ -17,13 +17,15 @@ render(html`<${App} />`, document.getElementById('app'));
 
 // ---- Service worker (offline + push) -------------------------------------------
 if ('serviceWorker' in navigator) {
+  // Set when you tap "Update" (see the controllerchange handler below).
+  let updateRequested = false;
   navigator.serviceWorker.register('sw.js').then((reg) => {
     // A new version was deployed: offer to switch now.
     const offer = (worker) => {
       toast(t('app.updateReady'), {
         type: 'info',
         duration: 8000,
-        action: { label: t('app.update'), fn: () => worker.postMessage({ type: 'skipWaiting' }) },
+        action: { label: t('app.update'), fn: () => { updateRequested = true; worker.postMessage({ type: 'skipWaiting' }); } },
       });
     };
     if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
@@ -37,12 +39,14 @@ if ('serviceWorker' in navigator) {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
   }).catch((e) => console.warn('SW registration failed', e));
 
-  // Reload once the new version takes over — but not on the very first
-  // install (then there was no old version to replace).
-  const hadController = !!navigator.serviceWorker.controller;
+  // Reload once a new version takes over. Exception: on the very first install
+  // the service worker just starts controlling this page (no old version to
+  // replace), so that first change is skipped — unless you tapped "Update".
+  let hadController = !!navigator.serviceWorker.controller;
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading || !hadController) return;
+    if (reloading) return;
+    if (!hadController && !updateRequested) { hadController = true; return; }
     reloading = true;
     location.reload();
   });

@@ -23,7 +23,7 @@ import { openInstallSheet } from './install-prompt.js';
 import { showRecoveryCode } from './auth.js';
 import { applyTheme } from '../lib/theme.js';
 import { setLanguage } from '../lib/i18n.js';
-import { pushSupport } from '../lib/push.js';
+import { pushSupport, currentSubscription } from '../lib/push.js';
 
 export function ProfileScreen() {
   const s = store.settings();
@@ -38,6 +38,12 @@ export function ProfileScreen() {
   const langName = LANGUAGES.find((l) => l.code === getLang())?.name || 'English';
   const st = store.status;
   const ps = pushSupport();
+  // Push is only "On" when this device really has a subscription (turning it
+  // off in Settings keeps the browser permission, so that alone isn't enough).
+  const [sub, setSub] = useState(undefined); // undefined = still checking
+  const refreshSub = () => currentSubscription().then((x) => setSub(x || null)).catch(() => setSub(null));
+  useEffect(() => { refreshSub(); }, []);
+  const pushOn = ps.permission === 'granted' && !!sub;
 
   const row = (icon, label, value, onClick, color) => html`<button class="li" onClick=${onClick}>
     <span class="li-icon" style=${color ? `background:${color}` : ''}>${typeof icon === 'string' && icon.length <= 2 ? icon : html`<${Icon} name=${icon} />`}</span>
@@ -77,7 +83,7 @@ export function ProfileScreen() {
 
     <div class="section-title">${t('profile.app')}</div>
     <div class="list">
-      ${row('bell', t('settings.notifications'), ps.permission === 'granted' ? t('common.on') : t('common.off'), openNotificationsSheet)}
+      ${row('bell', t('settings.notifications'), sub === undefined ? null : pushOn ? t('common.on') : t('common.off'), () => openNotificationsSheet().then(refreshSub))}
       ${row('steps', t('settings.stepsShortcut'), null, openStepsShortcutSheet)}
       ${row('globe', t('settings.language'), langName, openLanguageSheet)}
       <div class="li">
@@ -126,7 +132,9 @@ function SyncSheet({ close }) {
       <div class="li"><span class="grow">${t('sync.last')}</span><span class="value">${st.lastSyncAt ? fmtClock(st.lastSyncAt, s.timezone) : '–'}</span></div>
     </div>
     <p class="small muted mt-12">${t('sync.explain')}</p>
-    ${st.failed.length > 0 && html`<div class="banner danger mt-12"><${Icon} name="info" /><span class="grow">${t('sync.failed', { n: st.failed.length })}</span></div>`}
+    ${st.failed.length > 0 && html`<div class="banner danger mt-12"><${Icon} name="info" /><span class="grow">${t('sync.failed', { n: st.failed.length })}</span>
+      <button class="icon-btn plain" style="width:32px;height:32px;margin:-6px;color:inherit" aria-label=${t('common.close')} onClick=${store.clearFailed}><${Icon} name="x" /></button></div>`}
+    ${st.storageError && html`<div class="banner danger mt-12"><${Icon} name="info" /><span class="grow">${t('sync.storageError')}</span></div>`}
     <button class="btn primary block mt-16" disabled=${busy} onClick=${async () => { setBusy(true); await store.sync(); setBusy(false); toast(store.status.offline ? t('sync.offline') : t('sync.done'), { type: store.status.offline ? 'error' : 'ok' }); }}>
       ${busy ? html`<span class="spinner"></span>` : html`<${Icon} name="sync" />${t('sync.now')}`}
     </button>
@@ -189,6 +197,10 @@ async function exportData() {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
+// Resolve with null if `p` takes longer than `ms` (so a slow network can't
+// block signing out).
+const withTimeout = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(() => r(null), ms))]);
+
 async function signOut() {
   const pending = await store.pendingCount();
   const ok = await confirmDialog({
@@ -198,6 +210,13 @@ async function signOut() {
     danger: true,
   });
   if (!ok) return;
+  // Stop coach notifications on this device for this account (while we're
+  // still signed in). The browser subscription stays, so signing in again
+  // turns them back on without asking. Offline: the server keeps sending.
+  try {
+    const sub = await withTimeout(currentSubscription(), 3000);
+    if (sub) await withTimeout(supa.from('push_subscriptions').update({ deleted: true }).eq('endpoint', sub.endpoint), 5000);
+  } catch { /* offline — acceptable */ }
   await store.reset();
   await supa.auth.signOut({ scope: 'local' }).catch(() => {});
   try { navigator.clearAppBadge?.(); } catch { /* ignore */ }

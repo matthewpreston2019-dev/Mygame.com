@@ -22,6 +22,9 @@ export function nextMessageTime() {
 /** Save one answer. field: 'studied' | 'trained'. */
 export function answerCheckin(date, field, value) {
   const prev = store.find('checkins', { date });
+  // Same answer again (double tap, or tapping it again in the Coach feed):
+  // nothing changed, so don't post another bubble and coach reply.
+  if (prev?.[field] === value) return;
   store.put('checkins', { date, studied: prev?.studied ?? null, trained: prev?.trained ?? null, [field]: value });
 
   // Your answer as a chat bubble…

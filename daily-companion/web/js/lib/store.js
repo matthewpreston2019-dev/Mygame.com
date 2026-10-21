@@ -64,6 +64,22 @@ const listeners = new Set();
 let rowsCache = { version: -1, data: {} };
 let statsCache = { version: -1, stats: null };
 
+// Every local change gets a number (writeGen); `touched` keeps the number of
+// the last change per "table|key". A download that started before a change
+// holds an older copy of that row, so it must not replace it (see pull()).
+let writeGen = 0;
+const touched = new Map();
+
+// Bumped on sign-in and sign-out. Background uploads/downloads remember the
+// value they started with and stop (dropping their results) once it changes,
+// because they belong to the old session.
+let gen = 0;
+
+// Changes this device couldn't save in IndexedDB (storage error, e.g. full).
+// They're kept here in order and uploaded from memory, so they still reach
+// the server while the app stays open.   "table|key" → { t, k, row, unsaved }
+const unsaved = new Map();
+
 export const status = {
   ready: false,        // local cache loaded
   synced: false,       // at least one full download has completed (ever)
@@ -71,7 +87,8 @@ export const status = {
   pending: 0,          // changes waiting to upload
   lastSyncAt: null,
   offline: !navigator.onLine,
-  failed: [],          // changes the server rejected (should never happen)
+  failed: [],          // changes the server rejected (kept until you dismiss them)
+  storageError: false, // some changes couldn't be saved on this device (see `unsaved`)
 };
 
 // ---- change notification ----------------------------------------------------
@@ -145,6 +162,7 @@ export function put(t, fields) {
   const row = { ...(existing || {}), ...draft, user_id: userId, deleted: fields.deleted ?? false, updated_at: new Date().toISOString() };
   mem[t].set(k, row);
   pendingKeys.add(`${t}|${k}`);
+  touched.set(`${t}|${k}`, ++writeGen);
   emit();
   persist(t, k, row);
   return row;
@@ -163,15 +181,24 @@ const keyFieldsOf = (t, row) => Object.fromEntries(TABLES[t].key.map((c) => [c, 
 // Writes are chained so the outbox keeps the exact order of your changes.
 let writeChain = Promise.resolve();
 function persist(t, k, row) {
+  const key = `${t}|${k}`;
+  const g = gen;
   writeChain = writeChain.then(async () => {
-    await idb.write('rows', [{ k: `${t}|${k}`, t, row }]);
-    // Coalesce: an older unsent change to the same row is replaced by this one.
-    const outbox = await idb.getAll('outbox');
-    const stale = outbox.filter((o) => o.t === t && o.k === k).map((o) => o.id);
-    if (stale.length) await idb.write('outbox', [], stale);
-    await idb.add('outbox', { t, k, row });
-    status.pending = outbox.length - stale.length + 1;
-  }).catch((e) => console.error('persist failed', e));
+    if (g !== gen) return; // signed out before this was saved
+    // Once saving failed, keep queueing in memory so uploads stay in order.
+    if (unsaved.size) throw new Error('storage unavailable');
+    // Saves the row and queues it in one go (an older unsent change to the
+    // same row is replaced by this one).
+    status.pending = await idb.putRowAndQueue({ k: key, t, row }, { t, k, row });
+  }).catch((e) => {
+    if (g !== gen) return;
+    if (!unsaved.size) console.error('persist failed', e);
+    if (!unsaved.has(key)) status.pending++;
+    unsaved.delete(key); // delete + set moves it to the end: it's the newest change
+    unsaved.set(key, { t, k, row, unsaved: true });
+    status.storageError = true;
+    emit();
+  });
   scheduleFlush();
 }
 
@@ -179,7 +206,7 @@ function persist(t, k, row) {
 let flushTimer = null;
 function scheduleFlush() {
   clearTimeout(flushTimer);
-  flushTimer = setTimeout(() => { flush(); }, 400);
+  flushTimer = setTimeout(() => { flush().catch((e) => console.error('flush failed', e)); }, 400);
 }
 
 const isRetryable = (st) => st === 0 || st === 401 || st === 408 || st === 429 || st >= 500 || st === undefined;
@@ -191,50 +218,125 @@ function toServerRow(t, row) {
   return out;
 }
 
-let flushing = null;
+/**
+ * Run `start` at most once at a time. A call made while it runs gets a
+ * promise for ONE more run right after the current one (shared by all such
+ * calls), so a change made during a run is never left waiting.
+ * fn.forget() lets go of the current run (used on sign-out/sign-in; the old
+ * run notices that `gen` changed and stops by itself).
+ */
+function singleFlight(start) {
+  let running = null, next = null;
+  const fn = () => {
+    if (running) {
+      if (!next) {
+        const p = running.catch(() => {}).then(() => { if (next === p) next = null; return fn(); });
+        next = p;
+      }
+      return next;
+    }
+    const p = start().finally(() => { if (running === p) running = null; });
+    running = p;
+    return p;
+  };
+  fn.forget = () => { running = null; next = null; };
+  return fn;
+}
+
+// The server's current copy of one row ({ data: row or null, error, status }).
+function serverRow(t, row) {
+  let q = supa.from(t).select('*');
+  for (const c of TABLES[t].key) q = q.eq(c, row[c]);
+  return q.maybeSingle();
+}
+
+// Show the server's copy of a row on this device, or drop the row if the
+// server has none. Skipped if you changed the row again after `since`.
+async function adoptServerRow(t, k, srv, since, g) {
+  const key = `${t}|${k}`;
+  if (g !== gen || pendingKeys.has(key) || (touched.get(key) || 0) > since) return;
+  if (srv && !srv.deleted) mem[t].set(k, srv); else mem[t].delete(k);
+  emit();
+  if (srv && !srv.deleted) await idb.write('rows', [{ k: key, t, row: srv }]);
+  else await idb.write('rows', [], [key]);
+}
+
+// Steps: the iOS Shortcut writes these rows too. True when it sent a newer
+// Apple Health total than this queued change (e.g. steps typed in offline in
+// the morning, Shortcut ran in the evening) — then the server's number wins.
+const isNewerShortcut = (srv, row) => !!srv && !srv.deleted && srv.source === 'shortcut'
+  && Date.parse(srv.updated_at) > Date.parse(row.updated_at);
+
+// A queued change is done (uploaded, rejected or skipped): take it out of the
+// outbox and clear the row's "pending" mark unless a newer change is queued.
+async function finishOp(op, g) {
+  const key = `${op.t}|${op.k}`;
+  if (op.unsaved) {
+    if (unsaved.get(key) === op) unsaved.delete(key);
+    status.storageError = unsaved.size > 0;
+  } else {
+    await idb.write('outbox', [], [op.id]);
+  }
+  if (g !== gen) return;
+  status.pending = Math.max(0, status.pending - 1);
+  const still = unsaved.has(key) || (await idb.getAll('outbox')).some((o) => o.t === op.t && o.k === op.k);
+  if (g === gen && !still) pendingKeys.delete(key);
+}
+
+// Network or login trouble: stop uploading for now (order is kept).
+async function pauseUploads(st) {
+  if (st === 401) await supa.auth.refreshSession().catch(() => {});
+  status.offline = st === 0 || !navigator.onLine;
+}
+
 /** Upload queued changes in order. Stops at the first network problem. */
-export function flush() {
-  if (flushing) return flushing;
-  flushing = (async () => {
-    await writeChain;
-    if (!userId) return;
-    const ops = (await idb.getAll('outbox')).sort((a, b) => a.id - b.id);
-    status.pending = ops.length;
-    const uid = userId;
-    for (const op of ops) {
-      if (userId !== uid) break; // signed out mid-way
-      if (!TABLES[op.t]) { await idb.write('outbox', [], [op.id]); continue; }
-      const def = TABLES[op.t];
-      const res = await supa.from(op.t).upsert(toServerRow(op.t, op.row), { onConflict: def.conflict || def.key.join(',') });
-      if (!res.error) {
-        await idb.write('outbox', [], [op.id]);
-        status.pending = Math.max(0, status.pending - 1);
-        // Only clear "pending" if no newer change for the row was queued meanwhile.
-        const still = (await idb.getAll('outbox')).some((o) => o.t === op.t && o.k === op.k);
-        if (!still) pendingKeys.delete(`${op.t}|${op.k}`);
+export const flush = singleFlight(async () => {
+  const g = gen;
+  await writeChain;
+  if (!userId || g !== gen) return;
+  const ops = (await idb.getAll('outbox')).sort((a, b) => a.id - b.id);
+  // Changes that couldn't be saved on the device are the newest: they go last.
+  ops.push(...unsaved.values());
+  status.pending = ops.length;
+  for (const op of ops) {
+    if (g !== gen) break; // signed out mid-way
+    const def = TABLES[op.t];
+    if (!def) { await finishOp(op, g); continue; }
+    if (op.t === 'steps') {
+      const since = writeGen;
+      const cur = await serverRow(op.t, op.row);
+      if (g !== gen) break;
+      if (cur.error && isRetryable(cur.status)) { await pauseUploads(cur.status); break; }
+      if (!cur.error && isNewerShortcut(cur.data, op.row)) {
+        await finishOp(op, g);
+        await adoptServerRow(op.t, op.k, cur.data, since, g);
         continue;
       }
-      if (isRetryable(res.status)) {
-        if (res.status === 401) await supa.auth.refreshSession().catch(() => {});
-        status.offline = res.status === 0 || !navigator.onLine;
-        break; // try again later, keep order
-      }
-      // The server refused this change (invalid data). Drop it so it can't block
-      // everything behind it, and remember it so the UI can tell you.
-      console.error('Sync rejected', op, res.error);
-      status.failed.push({ table: op.t, row: op.row, message: res.error.message, at: new Date().toISOString() });
-      await idb.write('outbox', [], [op.id]);
-      pendingKeys.delete(`${op.t}|${op.k}`);
-      status.pending = Math.max(0, status.pending - 1);
     }
-    emit();
-  })().finally(() => { flushing = null; });
-  return flushing;
-}
+    const res = await supa.from(op.t).upsert(toServerRow(op.t, op.row), { onConflict: def.conflict || def.key.join(',') });
+    if (g !== gen) break;
+    if (!res.error) { await finishOp(op, g); continue; }
+    if (isRetryable(res.status)) { await pauseUploads(res.status); break; } // try again later, keep order
+    // The server refused this change (invalid data). Drop it so it can't block
+    // everything behind it, and remember it (also after a restart) so the UI
+    // can tell you.
+    console.error('Sync rejected', op, res.error);
+    status.failed = [...status.failed, { table: op.t, row: op.row, message: res.error.message, at: new Date().toISOString() }].slice(-50);
+    await idb.write('meta', [{ k: 'failed', v: status.failed }]).catch((e) => console.error('could not save failed list', e));
+    await finishOp(op, g);
+    // Undo it on this device too: show the server's version again, or remove
+    // the row if it never reached the server. (Offline: leave it for now.)
+    const since = writeGen;
+    const srv = await serverRow(op.t, op.row);
+    if (!srv.error) await adoptServerRow(op.t, op.k, srv.data, since, g);
+  }
+  emit();
+});
 
 /** Download everything that changed on the server since the last pull. */
 async function pull() {
-  const uid = userId;
+  const g = gen;
+  const startGen = writeGen; // local changes after this are newer than what we download
   const results = await Promise.all(TABLE_NAMES.map(async (t) => {
     const changed = [];
     let since = cursors[t] ? new Date(Date.parse(cursors[t]) - PULL_OVERLAP_MS).toISOString() : null;
@@ -251,61 +353,77 @@ async function pull() {
   }));
 
   // Signed out (or switched account) while downloading: throw the results away.
-  if (userId !== uid) return;
+  if (g !== gen) return;
   const puts = [], dels = [];
   let any = false;
   for (const [t, list] of results) {
     for (const row of list) {
       if (!cursors[t] || row.updated_at > cursors[t]) cursors[t] = row.updated_at;
       const k = keyOf(t, row);
-      if (pendingKeys.has(`${t}|${k}`)) continue; // our unsent change is newer
+      const key = `${t}|${k}`;
+      if (pendingKeys.has(key)) continue; // our unsent change is newer
+      // Changed here after this download started: even if that change is
+      // already uploaded, this copy is older. The next pull brings the new one.
+      if ((touched.get(key) || 0) > startGen) continue;
       const cur = mem[t].get(k);
       if (cur && cur.updated_at === row.updated_at && !cur.deleted === !row.deleted) continue;
       any = true;
-      if (row.deleted) { mem[t].delete(k); dels.push(`${t}|${k}`); }
-      else { mem[t].set(k, row); puts.push({ k: `${t}|${k}`, t, row }); }
+      if (row.deleted) { mem[t].delete(k); dels.push(key); }
+      else { mem[t].set(k, row); puts.push({ k: key, t, row }); }
     }
   }
-  if (puts.length || dels.length) await idb.write('rows', puts, dels);
-  await idb.write('meta', [{ k: 'cursors', v: cursors }, { k: 'synced', v: true }]);
   if (any) emit();
+  if (puts.length || dels.length) await idb.write('rows', puts, dels);
+  if (g !== gen) return;
+  await idb.write('meta', [{ k: 'cursors', v: cursors }, { k: 'synced', v: true }]);
 }
 
-let syncing = null;
-/** Upload, then download. Safe to call any time; concurrent calls share one run. */
-export function sync() {
-  if (syncing) return syncing;
-  if (!userId) return Promise.resolve();
-  syncing = (async () => {
-    status.syncing = true; emit();
-    try {
-      await flush();
-      await pull();
-      status.synced = true;
-      status.offline = false;
-      status.lastSyncAt = new Date().toISOString();
-    } catch (e) {
-      status.offline = !navigator.onLine || e.status === 0 || /fetch|network/i.test(e.message);
-      // 401 = session expired or signed out mid-sync: refresh quietly, retry next round.
-      if (e.status === 401) { if (userId) await supa.auth.refreshSession().catch(() => {}); }
-      else if (!status.offline && userId) console.error('sync failed', e);
-    } finally {
-      status.syncing = false;
-      syncing = null;
-      emit();
-    }
-  })();
-  return syncing;
-}
+/**
+ * Upload, then download. Safe to call any time: a call made while a sync is
+ * running gets one more run right after it (e.g. a push arrived mid-sync).
+ */
+export const sync = singleFlight(async () => {
+  if (!userId) return;
+  const g = gen;
+  status.syncing = true; emit();
+  try {
+    await flush();
+    if (g !== gen) return;
+    await pull();
+    if (g !== gen) return;
+    status.synced = true;
+    status.offline = false;
+    status.lastSyncAt = new Date().toISOString();
+  } catch (e) {
+    if (g !== gen) return;
+    status.offline = !navigator.onLine || e.status === 0 || /fetch|network/i.test(e.message);
+    // 401 = session expired or signed out mid-sync: refresh quietly, retry next round.
+    if (e.status === 401) { if (userId) await supa.auth.refreshSession().catch(() => {}); }
+    else if (!status.offline && userId) console.error('sync failed', e);
+  } finally {
+    if (g === gen) { status.syncing = false; emit(); }
+  }
+});
 
 // ---- lifecycle ----------------------------------------------------------------
 let timers = [];
 
+// Let go of anything still running for the previous session.
+function stopSession() {
+  gen++;
+  flush.forget();
+  sync.forget();
+  clearTimeout(flushTimer);
+  for (const off of timers) off();
+  timers = [];
+}
+
 /** Load the local cache for a user and start background syncing. */
 export async function init(uid) {
   if (userId === uid && status.ready) return;
+  stopSession();
   const owner = await idb.get('meta', 'owner');
-  if (owner && owner.v !== uid) await idb.clearAll(); // a different account used this device
+  if (owner && owner.v !== uid) { await idb.clearAll(); unsaved.clear(); } // a different account used this device
   userId = uid;
   await idb.write('meta', [{ k: 'owner', v: uid }]);
 
@@ -315,10 +433,14 @@ export async function init(uid) {
   }
   const outbox = await idb.getAll('outbox');
   pendingKeys.clear();
+  touched.clear();
   for (const o of outbox) pendingKeys.add(`${o.t}|${o.k}`);
-  status.pending = outbox.length;
+  for (const key of unsaved.keys()) pendingKeys.add(key);
+  status.pending = outbox.length + unsaved.size;
+  status.storageError = unsaved.size > 0;
   cursors = (await idb.get('meta', 'cursors'))?.v || {};
   status.synced = !!(await idb.get('meta', 'synced'))?.v;
+  status.failed = (await idb.get('meta', 'failed'))?.v || [];
   status.ready = true;
   emit();
 
@@ -337,21 +459,29 @@ export async function init(uid) {
 
 /** Forget everything on this device (used on sign-out). */
 export async function reset() {
-  for (const off of timers) off();
-  timers = [];
+  stopSession(); // a sync still running for this account stops and drops its results
   userId = null;
   for (const t of TABLE_NAMES) mem[t].clear();
   pendingKeys.clear();
+  touched.clear();
+  unsaved.clear();
   cursors = {};
-  Object.assign(status, { ready: false, synced: false, pending: 0, lastSyncAt: null, failed: [] });
+  Object.assign(status, { ready: false, synced: false, syncing: false, pending: 0, lastSyncAt: null, failed: [], storageError: false });
   await idb.clearAll();
   emit();
+}
+
+/** Dismiss the "changes were rejected by the server" notice. */
+export function clearFailed() {
+  status.failed = [];
+  emit();
+  idb.write('meta', [{ k: 'failed', v: [] }]).catch(() => {});
 }
 
 /** Unsent changes count — used to warn before signing out. */
 export async function pendingCount() {
   await writeChain;
-  return (await idb.getAll('outbox')).length;
+  return (await idb.getAll('outbox')).length + unsaved.size;
 }
 
 /** Update your settings (deep-merged into what's saved). */

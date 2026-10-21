@@ -12,7 +12,7 @@ import { Bar, BarChart, SheetFrame, Field, Empty, confirmDialog } from '../../co
 import { Icon } from '../../components/icons.js';
 import { openSheet, toast, haptic } from '../../lib/ui.js';
 import { getTimer, startTimer, stopTimer, discardTimer, elapsedMin, onTimerChange } from '../../lib/study-timer.js';
-import { num } from '../onboarding.js';
+import { wholeNum } from './numbers.js';
 
 export function StudySection() {
   const { date: today, tz } = useClock();
@@ -96,7 +96,7 @@ function StudyForm({ date, session, close }) {
 
   function save() {
     const e = {};
-    const m = num(f.minutes);
+    const m = wholeNum(f.minutes);
     if (!(Number.isInteger(m) && m >= 1 && m <= 960)) e.minutes = t('validate.range', { min: 1, max: 960 });
     if (f.subject.length > 60) e.subject = t('validate.tooLong', { n: 60 });
     setErrors(e);

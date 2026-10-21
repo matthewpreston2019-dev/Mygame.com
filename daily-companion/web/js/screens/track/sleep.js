@@ -82,6 +82,8 @@ function SleepForm({ date, close }) {
   const [err, setErr] = useState('');
   const existing = store.find('sleep_logs', { date: d });
   const options = Array.from({ length: 7 }, (_, i) => addDays(today, -i));
+  // Editing an older night from the log: keep its date in the list so it shows.
+  if (!options.includes(d)) options.push(d);
 
   // Bedtime later in the clock than wake-up (23:10 vs 07:00) means the evening before.
   function compute() {
