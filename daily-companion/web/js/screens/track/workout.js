@@ -136,7 +136,7 @@ function Records() {
   return html`<div class="section-title">🏆 ${t('workout.records')}</div>
     <div class="list">${rows.map((r) => html`<div class="li">
       <span class="grow"><div class="label">${r.name}</div>${r.e1 > 0 && html`<div class="sub">${t('workout.e1rm', { n: fmtNum(Math.round(r.e1 * 2) / 2, 1) })}</div>`}</span>
-      <span class="value bold" style="color:var(--gold)">${r.weight > 0 ? `${fmtW(r.weight)} kg × ${r.reps}` : t('workout.repsOnly', { n: r.reps })}</span>
+      <span class="value bold" style="color:var(--gold-text)">${r.weight > 0 ? `${fmtW(r.weight)} kg × ${r.reps}` : t('workout.repsOnly', { n: r.reps })}</span>
     </div>`)}</div>`;
 }
 

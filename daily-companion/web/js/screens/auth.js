@@ -118,7 +118,7 @@ export function showRecoveryCode(code) {
   return openSheet(({ close }) => html`<${SheetFrame} title=${t('auth.saveCodeTitle')} close=${close}
       footer=${html`<button class="btn primary block" onClick=${() => close(true)}>${t('auth.savedIt')}</button>`}>
       <p class="muted mb-12">${t('auth.saveCodeText')}</p>
-      <div class="copy-box mb-12"><code style="font-size:17px;color:var(--gold);letter-spacing:.05em">${code}</code>
+      <div class="copy-box mb-12"><code style="font-size:17px;color:var(--gold-text);letter-spacing:.05em">${code}</code>
         <button class="btn small" onClick=${() => copyText(code, t('common.copied'))}><${Icon} name="copy" />${t('common.copy')}</button>
       </div>
       <p class="faint small">${t('auth.saveCodeWhere')}</p>

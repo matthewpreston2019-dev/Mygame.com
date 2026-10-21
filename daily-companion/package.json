@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test tests/unit.test.mjs && node tests/check-i18n.mjs",
+    "test": "node --test tests/unit.test.mjs tests/store.test.mjs && node tests/check-i18n.mjs --strict",
     "serve": "node scripts/build.mjs && npx --yes serve@14 dist -l 8080"
   }
 }

@@ -130,7 +130,7 @@ function PlanPreview({ date, row }) {
         <span class="tnum faint" style="width:48px">${b.start}</span>
         <span class="grow">${blockName(b, plan.type, lang)}${b.kind === 'gym' ? ` · ${splitName(b.split, templates, lang)}` : ''}${b.kind === 'study' ? ` · ${fmtDuration(b.minutes)}` : ''}${b.kind === 'exam' && b.subject ? ` · ${b.subject}` : ''}</span>
       </div>`)}
-      ${plan.gymMoved && html`<p class="small" style="color:var(--gold)">${t('plan.gymMoved')}</p>`}
+      ${plan.gymMoved && html`<p class="small" style="color:var(--gold-text)">${t('plan.gymMoved')}</p>`}
       ${plan.trimmed && !plan.gymMoved && html`<p class="small faint">${t('plan.trimmed')}</p>`}
       ${plan.examTomorrow && html`<p class="small" style="color:var(--danger)">${t('plan.examTomorrow', { subject: plan.examTomorrow.subject || t('plan.exam') })}</p>`}
     </div>`;

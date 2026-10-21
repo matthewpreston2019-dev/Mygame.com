@@ -203,6 +203,25 @@ test('steps typed in offline do not overwrite a newer Apple Health total', async
   assert.equal(store.find('steps', { date: D }).steps, 13000);
 });
 
+test('a change made during sync’s own upload, sent while it downloads, is not undone', async () => {
+  seed('workout_sets', [{ id: 'A', weight: 50, done: false }, { id: 'S', weight: 60, done: false }]);
+  await store.init('u1');
+  await store.sync();
+  net.offline = true;
+  store.put('workout_sets', { id: 'A', weight: 52.5, done: true }); // waits in the outbox
+  await sleep(500);
+  net.offline = false;
+  net.upsertMs = 900;                         // slow uploads
+  net.selectMsByTable.coach_messages = 2500;  // slow download
+  const syncing = store.sync();               // its upload sends A
+  await sleep(150);
+  store.put('workout_sets', { id: 'S', weight: 62.5, done: true }); // sent by the follow-up upload, during the download
+  await syncing;
+  assert.equal(server.workout_sets.get('S').weight, 62.5);
+  assert.equal(store.find('workout_sets', { id: 'S' }).weight, 62.5);
+  assert.equal(store.find('workout_sets', { id: 'S' }).done, true);
+});
+
 test('several changes to one row queue as one upload', async () => {
   await store.init('u1');
   net.offline = true;

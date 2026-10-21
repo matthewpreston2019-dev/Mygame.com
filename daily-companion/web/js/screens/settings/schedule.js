@@ -62,6 +62,12 @@ function ScheduleSheet({ close }) {
       if (!e.checkinAt && toMinutes(d.checkinAt) <= freeEnd) e.checkinAt = msg;
       if (!e.windDownAt && toMinutes(d.windDownAt) <= freeEnd) e.windDownAt = msg;
     }
+    // The evening runs check-in → wind-down → lights out. Lights out may be
+    // after midnight, but only until 04:00 (later would read as a wrap-around
+    // of almost a whole day).
+    const checkin = toMinutes(d.checkinAt), windDown = toMinutes(d.windDownAt), lightsOut = toMinutes(d.lightsOut);
+    if (!e.checkinAt && !e.windDownAt && windDown < checkin) e.windDownAt = t('schedule.eveningAfter', { time: ltr(d.checkinAt) });
+    if (!e.windDownAt && !e.lightsOut && lightsOut <= windDown && lightsOut > 240) e.lightsOut = t('schedule.eveningAfter', { time: ltr(d.windDownAt) });
     const mins = [[['relaxMin', 'short'], 240], [['relaxMin', 'long'], 240], [['gymMin'], 240], [['afterGymMin'], 180],
       [['studyMin', 'short'], 600], [['studyMin', 'long'], 600], [['studyMin', 'weekend'], 600]];
     const out = JSON.parse(JSON.stringify(d));

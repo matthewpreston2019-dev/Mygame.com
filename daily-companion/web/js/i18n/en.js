@@ -106,6 +106,7 @@ export default {
   },
   theme: { dark: 'Dark', light: 'Light', auto: 'Auto' },
   sync: {
+    storageError: "Some changes couldn't be saved on this device. Keep the app open until they've synced.",
     status: 'Status', syncing: 'Syncing…', offline: 'Offline', online: 'Up to date', waiting: 'Changes waiting',
     last: 'Last sync', now: 'Sync now', done: 'All synced',
     pending: { one: '1 waiting', other: '{n} waiting' },
@@ -114,6 +115,7 @@ export default {
     failed: { one: '1 change was rejected by the server.', other: '{n} changes were rejected by the server.' },
   },
   schedule: {
+    eveningAfter: "Pick an evening time after {time}",
     dayTypes: 'Day types', dayTypesHint: 'Short days: more time after school. Long days: you’re tired, so plans are lighter. Free days: flexible.',
     afterSchool: 'After school', schoolStart: 'School starts', shortFree: 'Short days free', longFree: 'Long days free',
     order: 'Order of the afternoon', relaxShort: 'Break, short days (min)', relaxLong: 'Break, long days (min)',
@@ -221,6 +223,8 @@ export default {
     saved: 'Saved: {d} of sleep', delete: 'Delete this night?',
   },
   weight: {
+    gainTooFast: "Gaining faster than 1 kg/week — that’s not all muscle. Eat a little less.",
+    gainDown: "Down this week, but your goal is higher. Check you’re eating enough for a few days.",
     current: 'Current', goal: 'Goal', weekChange: 'vs last week', toGo: 'To go', log: 'Log weight', delete: 'Delete this entry?',
     trend: 'Last 60 days', entries: 'Entries', emptyTitle: 'No weigh-ins yet', emptyText: 'Weigh in 2–3 times a week, same time of day.',
     tip: 'Tip: weigh in the morning, after the toilet, before eating. Watch the weekly average, not single days.',

@@ -11,9 +11,10 @@ export { num };
 
 // A thousands separator: dot, comma, apostrophe (Swiss "10'000") or a space.
 const SEP = "[.,'’\\s]";
-// "1,200", "10.000", "1 234 567": 1–3 digits, then groups of exactly 3 digits,
-// always with the same separator (\1 repeats the first one).
-const GROUPED = new RegExp(`^\\d{1,3}(${SEP})\\d{3}(\\1\\d{3})*$`);
+// "1,200", "10.000", "1 234 567": 1–3 digits (not starting with 0, so "0.500"
+// stays 0.5), then groups of exactly 3 digits, always with the same separator
+// (\1 repeats the first one).
+const GROUPED = new RegExp(`^[1-9]\\d{0,2}(${SEP})\\d{3}(\\1\\d{3})*$`);
 
 /**
  * Parse a number for a field that holds a whole number. Here "1,200" and

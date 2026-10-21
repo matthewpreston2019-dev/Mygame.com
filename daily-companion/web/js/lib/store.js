@@ -185,8 +185,14 @@ function persist(t, k, row) {
   const g = gen;
   writeChain = writeChain.then(async () => {
     if (g !== gen) return; // signed out before this was saved
-    // Once saving failed, keep queueing in memory so uploads stay in order.
-    if (unsaved.size) throw new Error('storage unavailable');
+    // Saving failed before: first move those changes into the outbox, oldest
+    // first, so uploads stay in order. If that fails again, this change waits
+    // in memory behind them (see catch).
+    for (const [uk, e] of [...unsaved]) {
+      await idb.putRowAndQueue({ k: uk, t: e.t, row: e.row }, { t: e.t, k: e.k, row: e.row });
+      if (unsaved.get(uk) === e) unsaved.delete(uk);
+    }
+    status.storageError = unsaved.size > 0;
     // Saves the row and queues it in one go (an older unsent change to the
     // same row is replaced by this one).
     status.pending = await idb.putRowAndQueue({ k: key, t, row }, { t, k, row });
@@ -337,6 +343,9 @@ export const flush = singleFlight(async () => {
 async function pull() {
   const g = gen;
   const startGen = writeGen; // local changes after this are newer than what we download
+  // Not on the server yet when we started: even if it's uploaded while we
+  // download, this copy may be older. The next pull's overlap brings it.
+  const pendingAtStart = new Set(pendingKeys);
   const results = await Promise.all(TABLE_NAMES.map(async (t) => {
     const changed = [];
     let since = cursors[t] ? new Date(Date.parse(cursors[t]) - PULL_OVERLAP_MS).toISOString() : null;
@@ -361,7 +370,7 @@ async function pull() {
       if (!cursors[t] || row.updated_at > cursors[t]) cursors[t] = row.updated_at;
       const k = keyOf(t, row);
       const key = `${t}|${k}`;
-      if (pendingKeys.has(key)) continue; // our unsent change is newer
+      if (pendingKeys.has(key) || pendingAtStart.has(key)) continue; // our unsent change is newer
       // Changed here after this download started: even if that change is
       // already uploaded, this copy is older. The next pull brings the new one.
       if ((touched.get(key) || 0) > startGen) continue;

@@ -104,6 +104,7 @@ export default {
   },
   theme: { dark: 'Dunkel', light: 'Hell', auto: 'Auto' },
   sync: {
+    storageError: "Einige Änderungen konnten auf diesem Gerät nicht gespeichert werden. Lass die App offen, bis sie synchronisiert sind.",
     status: 'Status', syncing: 'Synchronisiere …', offline: 'Offline', online: 'Aktuell', waiting: 'Wartende Änderungen',
     last: 'Letzte Synchronisierung', now: 'Jetzt synchronisieren', done: 'Alles synchronisiert',
     pending: { one: '1 wartet', other: '{n} warten' },
@@ -112,6 +113,7 @@ export default {
     failed: { one: '1 Änderung wurde vom Server abgelehnt.', other: '{n} Änderungen wurden vom Server abgelehnt.' },
   },
   schedule: {
+    eveningAfter: "Wähle eine Abendzeit nach {time}",
     dayTypes: 'Tagesarten', dayTypesHint: 'Kurze Tage: mehr Zeit nach der Schule. Lange Tage: du bist müde, deshalb leichter. Freie Tage: flexibel.',
     afterSchool: 'Nach der Schule', schoolStart: 'Schulbeginn', shortFree: 'Kurze Tage frei ab', longFree: 'Lange Tage frei ab',
     order: 'Reihenfolge am Nachmittag', relaxShort: 'Pause, kurze Tage (Min.)', relaxLong: 'Pause, lange Tage (Min.)',
@@ -219,6 +221,8 @@ export default {
     saved: 'Gespeichert: {d} Schlaf', delete: 'Diese Nacht löschen?',
   },
   weight: {
+    gainTooFast: "Du nimmst mehr als 1 kg pro Woche zu – das ist nicht nur Muskel. Iss etwas weniger.",
+    gainDown: "Diese Woche gesunken, aber dein Ziel liegt höher. Prüf ein paar Tage, ob du genug isst.",
     current: 'Aktuell', goal: 'Ziel', weekChange: 'vs. letzte Woche', toGo: 'Noch', log: 'Gewicht eintragen', delete: 'Diesen Eintrag löschen?',
     trend: 'Letzte 60 Tage', entries: 'Einträge', emptyTitle: 'Noch keine Messungen', emptyText: 'Wieg dich 2–3× pro Woche, immer zur gleichen Zeit.',
     tip: 'Tipp: morgens wiegen, nach der Toilette, vor dem Essen. Achte auf den Wochenschnitt, nicht auf einzelne Tage.',

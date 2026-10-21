@@ -104,6 +104,7 @@ export default {
   },
   theme: { dark: 'Oscuro', light: 'Claro', auto: 'Auto' },
   sync: {
+    storageError: "Algunos cambios no se pudieron guardar en este dispositivo. Mantén la app abierta hasta que se sincronicen.",
     status: 'Estado', syncing: 'Sincronizando…', offline: 'Sin conexión', online: 'Al día', waiting: 'Cambios pendientes',
     last: 'Última sincronización', now: 'Sincronizar ahora', done: 'Todo sincronizado',
     pending: { one: '1 pendiente', other: '{n} pendientes' },
@@ -112,6 +113,7 @@ export default {
     failed: { one: 'El servidor rechazó 1 cambio.', other: 'El servidor rechazó {n} cambios.' },
   },
   schedule: {
+    eveningAfter: "Elige una hora de la noche después de las {time}",
     dayTypes: 'Tipos de día', dayTypesHint: 'Días cortos: más tiempo después de clase. Días largos: estás cansado, así que el plan es más ligero. Días libres: flexibles.',
     afterSchool: 'Después de clase', schoolStart: 'Empieza la clase', shortFree: 'Días cortos libre desde', longFree: 'Días largos libre desde',
     order: 'Orden de la tarde', relaxShort: 'Descanso, días cortos (min)', relaxLong: 'Descanso, días largos (min)',
@@ -219,6 +221,8 @@ export default {
     saved: 'Guardado: {d} de sueño', delete: '¿Eliminar esta noche?',
   },
   weight: {
+    gainTooFast: "Subes más de 1 kg/semana: eso no es solo músculo. Come un poco menos.",
+    gainDown: "Ha bajado esta semana, pero tu meta es más alta. Revisa unos días que comes lo suficiente.",
     current: 'Actual', goal: 'Objetivo', weekChange: 'vs semana pasada', toGo: 'Faltan', log: 'Registrar peso', delete: '¿Eliminar este registro?',
     trend: 'Últimos 60 días', entries: 'Registros', emptyTitle: 'Aún no hay pesajes', emptyText: 'Pésate 2–3 veces por semana, a la misma hora.',
     tip: 'Consejo: pésate por la mañana, después del baño y antes de comer. Mira la media semanal, no días sueltos.',

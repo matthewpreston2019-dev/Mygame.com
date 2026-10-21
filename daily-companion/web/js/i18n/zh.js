@@ -104,6 +104,7 @@ export default {
   },
   theme: { dark: '深色', light: '浅色', auto: '自动' },
   sync: {
+    storageError: "部分更改无法保存在此设备上。请保持应用打开，直到同步完成。",
     status: '状态', syncing: '同步中…', offline: '离线', online: '已是最新', waiting: '待上传的更改',
     last: '上次同步', now: '立即同步', done: '已全部同步',
     pending: { other: '{n} 项待上传' },
@@ -112,6 +113,7 @@ export default {
     failed: { other: '服务器拒绝了 {n} 项更改。' },
   },
   schedule: {
+    eveningAfter: "请选择 {time} 之后的晚上时间",
     dayTypes: '日期类型', dayTypesHint: '短课日：放学后时间多。长课日：你比较累，所以安排更轻。自由日：灵活安排。',
     afterSchool: '放学后', schoolStart: '上学时间', shortFree: '短课日放学', longFree: '长课日放学',
     order: '下午的顺序', relaxShort: '短课日休息（分钟）', relaxLong: '长课日休息（分钟）',
@@ -219,6 +221,8 @@ export default {
     saved: '已保存：睡了 {d}', delete: '删除这晚的记录？',
   },
   weight: {
+    gainTooFast: "每周增重超过 1 公斤——这不全是肌肉。稍微少吃一点。",
+    gainDown: "本周下降了，但你的目标更高。这几天看看自己是否吃够了。",
     current: '当前', goal: '目标', weekChange: '较上周', toGo: '还差', log: '记录体重', delete: '删除这条记录？',
     trend: '最近 60 天', entries: '记录', emptyTitle: '还没有称重', emptyText: '每周称 2–3 次，每次同一时间。',
     tip: '提示：早上上完厕所、吃饭前称重。关注每周平均值，而不是单天数字。',

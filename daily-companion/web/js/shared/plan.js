@@ -195,6 +195,12 @@ export function buildDayPlan({ date, settings, override, nextOverride, gymWeek }
   if (isHHMM(s.checkinAt)) add({ id: 'checkin', kind: 'checkin', start: s.checkinAt, end: s.checkinAt });
   if (isHHMM(s.windDownAt)) add({ id: 'winddown', kind: 'winddown', start: s.windDownAt, end: s.lightsOut || s.windDownAt });
   if (isHHMM(s.lightsOut)) add({ id: 'sleep', kind: 'sleep', start: s.lightsOut, end: s.lightsOut });
+  // Lights out after midnight (e.g. 00:30): the wind-down runs past midnight
+  // and sleep comes last, so both still belong to the end of this day.
+  const windDown = blocks.find((b) => b.id === 'winddown');
+  const sleep = blocks.find((b) => b.id === 'sleep');
+  if (windDown && windDown.endMin < windDown.startMin) windDown.endMin += 1440;
+  if (windDown && sleep && sleep.startMin < windDown.startMin) { sleep.startMin += 1440; sleep.endMin += 1440; }
 
   plan.blocks = blocks.sort((a, b) => a.startMin - b.startMin || (a.kind === 'school' ? -1 : 1));
   return plan;

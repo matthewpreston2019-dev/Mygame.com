@@ -53,9 +53,11 @@ export function toggleQuest(quest, date) {
 let running = false;
 /**
  * Make the quest log match your data for the last 7 days: an auto quest whose
- * goal is met earns its XP; if the data changes (e.g. you delete a meal) and
- * the goal is no longer met, the XP is taken back. Only writes when something
- * actually differs, so it's cheap to call after every change.
+ * goal is met earns its XP (also catch-up for days logged offline). If today's
+ * data changes (e.g. you delete a meal) and the goal is no longer met, today's
+ * XP is taken back; past days keep XP already earned (questsFor counts a past
+ * day with a log as done). Only writes when something actually differs, so
+ * it's cheap to call after every change.
  */
 export function reconcileQuests() {
   if (running || !store.status.ready) return;

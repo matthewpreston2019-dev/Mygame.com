@@ -5,7 +5,7 @@ import { t } from '../../lib/i18n.js';
 import { SheetFrame, Toggle, Field, confirmDialog } from '../../components/common.js';
 import { Icon } from '../../components/icons.js';
 import { openSheet, toast } from '../../lib/ui.js';
-import { questTitle } from '../../lib/quests.js';
+import { questTitle, today } from '../../lib/quests.js';
 import { WEEK_ORDER, weekdayLabel } from './schedule.js';
 import { num } from '../onboarding.js';
 
@@ -21,7 +21,7 @@ function QuestsSheet({ close }) {
           <div class="label">${questTitle(q)}</div>
           <div class="sub">${q.xp} XP · ${t(`quests.kind.${q.kind}`)}</div>
         </button>
-        <${Toggle} label=${questTitle(q)} checked=${q.active} onChange=${(v) => store.put('quests', { id: q.id, active: v })} />
+        <${Toggle} label=${questTitle(q)} checked=${q.active} onChange=${(v) => store.put('quests', { id: q.id, active: v, inactive_since: v ? null : today() })} />
       </div>`)}
     </div>
   </${SheetFrame}>`;
@@ -53,7 +53,8 @@ function QuestEditor({ quest, close }) {
     const renamed = quest?.key ? (title !== questTitle({ ...quest, title: null }) ? title : null) : title;
     const sortMax = Math.max(0, ...store.rows('quests').map((q) => q.sort));
     store.put('quests', {
-      ...(quest ? { id: quest.id } : { kind: 'manual', active: true, sort: sortMax + 1 }),
+      // A new quest only counts from today on (see questLiveOn in shared/stats.js).
+      ...(quest ? { id: quest.id } : { kind: 'manual', active: true, sort: sortMax + 1, created_at: new Date().toISOString() }),
       title: renamed,
       emoji: [...(f.emoji.trim() || '⭐')].slice(0, 2).join(''),
       xp,
