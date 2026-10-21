@@ -20,6 +20,9 @@
     .feat b { display: block; color: var(--text); font-size: 15px; margin-bottom: 2px; }
     .platform { display: none; }
     .platform.show { display: block; }
+    .langs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 22px; }
+    .langs button { border: 0; background: none; color: var(--text-3); font-size: 13px; padding: 6px 8px; border-radius: 8px; }
+    .langs button.on { color: var(--sage); background: var(--sage-dim); }
   </style>
   <script>
     try {
@@ -33,68 +36,218 @@
   <main class="dl">
     <img class="hero-icon" src="icons/icon-192.png" alt="" width="108" height="108" />
     <h1>Daily Companion</h1>
-    <p class="lead">Your personal coach: daily plan, quests, food, workouts, sleep, and honest check-ins.</p>
+    <p class="lead" data-i18n="lead"></p>
 
     <!-- Already installed / opened from the Home Screen -->
     <section class="platform card" id="p-installed">
-      <p class="bold">You're using the installed app.</p>
-      <a class="btn primary block mt-12" href="./#/today">Open Daily Companion</a>
+      <p class="bold" data-i18n="installed"></p>
+      <a class="btn primary block mt-12" href="./#/today" data-i18n="open"></a>
     </section>
 
     <!-- Android & desktop Chrome/Edge: one tap -->
     <section class="platform card" id="p-onetap">
-      <button class="btn primary block" id="installBtn">⬇︎ Install app</button>
-      <p class="faint small center mt-8">Adds it to your home screen. Free, no app store.</p>
+      <button class="btn primary block" id="installBtn" data-i18n="installBtn"></button>
+      <p class="faint small center mt-8" data-i18n="installNote"></p>
     </section>
 
     <!-- iPhone / iPad in Safari -->
     <section class="platform card" id="p-ios">
-      <h2 class="bold mb-8">Install on iPhone</h2>
+      <h2 class="bold mb-8" data-i18n="iosTitle"></h2>
       <ol class="steps-list">
-        <li><span>Tap the <b>Share</b> button
-          <svg class="ios-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V3M8 7l4-4 4 4M7 10H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1"/></svg>
-          at the bottom of Safari (top on iPad).</span></li>
-        <li><span>Scroll down and tap <b>Add to Home Screen</b>.</span></li>
-        <li><span>Tap <b>Add</b>. Then open <b>Companion</b> from your Home Screen — notifications only work from there.</span></li>
+        <li><span data-i18n="ios1"></span></li>
+        <li><span data-i18n="ios2"></span></li>
+        <li><span data-i18n="ios3"></span></li>
       </ol>
-      <p class="faint small mt-8">Needs iOS 16.4 or newer for notifications.</p>
+      <p class="faint small mt-8" data-i18n="iosNote"></p>
     </section>
 
     <!-- iPhone in another browser (Chrome, Firefox, …) -->
     <section class="platform card" id="p-ios-other">
-      <h2 class="bold mb-8">Install on iPhone</h2>
-      <p class="muted mb-8">Easiest in <b>Safari</b>: copy this page's link and open it in Safari, then follow the steps. (Recent Chrome versions also show <b>Add to Home Screen</b> in their Share menu.)</p>
-      <button class="btn block" id="copyBtn">Copy link</button>
+      <h2 class="bold mb-8" data-i18n="iosTitle"></h2>
+      <p class="muted mb-8" data-i18n="iosOther"></p>
+      <button class="btn block" id="copyBtn" data-i18n="copyLink"></button>
     </section>
 
     <!-- Android without the one-tap prompt (e.g. Firefox, Samsung Internet) -->
     <section class="platform card" id="p-android">
-      <h2 class="bold mb-8">Install on Android</h2>
+      <h2 class="bold mb-8" data-i18n="androidTitle"></h2>
       <ol class="steps-list">
-        <li><span>Open the browser menu <b>⋮</b>.</span></li>
-        <li><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li>
+        <li><span data-i18n="android1"></span></li>
+        <li><span data-i18n="android2"></span></li>
       </ol>
     </section>
 
     <!-- Desktop -->
     <section class="platform card" id="p-desktop">
-      <h2 class="bold mb-8">Open on your phone</h2>
-      <p class="muted">Daily Companion is made for your phone. Open this address on it:</p>
-      <div class="copy-box mt-12"><code id="url"></code><button class="btn small" id="copyBtn2">Copy</button></div>
-      <p class="faint small mt-12">On a computer you can also install it from the address bar's install icon, or just <a href="./#/today">open it in the browser</a>.</p>
+      <h2 class="bold mb-8" data-i18n="desktopTitle"></h2>
+      <p class="muted" data-i18n="desktopText"></p>
+      <div class="copy-box mt-12"><code id="url" dir="ltr"></code><button class="btn small" id="copyBtn2" data-i18n="copy"></button></div>
+      <p class="faint small mt-12" data-i18n="desktopNote"></p>
     </section>
 
     <div class="feat">
-      <div><b>📅 Daily plan</b>Built around short days, long days and exams.</div>
-      <div><b>💬 Coach</b>Short, honest texts at the right time.</div>
-      <div><b>⚡ Quests</b>XP, levels and streaks.</div>
-      <div><b>📴 Offline</b>Works without signal, syncs later.</div>
+      <div><b data-i18n="f1t"></b><span data-i18n="f1"></span></div>
+      <div><b data-i18n="f2t"></b><span data-i18n="f2"></span></div>
+      <div><b data-i18n="f3t"></b><span data-i18n="f3"></span></div>
+      <div><b data-i18n="f4t"></b><span data-i18n="f4"></span></div>
     </div>
-    <p class="center mt-24"><a href="./#/today">Continue in the browser →</a></p>
+    <p class="center mt-24"><a href="./#/today" data-i18n="continue"></a></p>
+    <div class="langs" id="langs"></div>
   </main>
 
   <script>
     (function () {
+      // ---- Texts (static, written here — never user input) ----------------------
+      var SHARE = '<svg class="ios-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 14V3M8 7l4-4 4 4M7 10H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1"/></svg>';
+      var T = {
+        en: { name: 'English', title: 'Install Daily Companion',
+          lead: 'Your personal coach: daily plan, quests, food, workouts, sleep, and honest check-ins.',
+          installed: "You're using the installed app.", open: 'Open Daily Companion',
+          installBtn: '⬇︎ Install app', installNote: 'Adds it to your home screen. Free, no app store.',
+          iosTitle: 'Install on iPhone',
+          ios1: 'Tap the <b>Share</b> button {share} at the bottom of Safari (top on iPad).',
+          ios2: 'Scroll down and tap <b>Add to Home Screen</b>.',
+          ios3: 'Tap <b>Add</b>. Then open <b>Companion</b> from your Home Screen — notifications only work from there.',
+          iosNote: 'Needs iOS 16.4 or newer for notifications.',
+          iosOther: "Easiest in <b>Safari</b>: copy this page's link and open it in Safari, then follow the steps. (Recent Chrome versions also show <b>Add to Home Screen</b> in their Share menu.)",
+          copyLink: 'Copy link', copy: 'Copy', copied: 'Copied ✓',
+          androidTitle: 'Install on Android', android1: 'Open the browser menu <b>⋮</b>.', android2: 'Tap <b>Install app</b> or <b>Add to Home screen</b>.',
+          desktopTitle: 'Open on your phone', desktopText: 'Daily Companion is made for your phone. Open this address on it:',
+          desktopNote: "On a computer you can also install it from the address bar's install icon, or just <a href=\"./#/today\">open it in the browser</a>.",
+          f1t: '📅 Daily plan', f1: 'Built around short days, long days and exams.',
+          f2t: '💬 Coach', f2: 'Short, honest texts at the right time.',
+          f3t: '⚡ Quests', f3: 'XP, levels and streaks.',
+          f4t: '📴 Offline', f4: 'Works without signal, syncs later.',
+          continue: 'Continue in the browser →' },
+        es: { name: 'Español', title: 'Instalar Daily Companion',
+          lead: 'Tu coach personal: plan diario, misiones, comida, entrenos, sueño y check-ins honestos.',
+          installed: 'Estás usando la app instalada.', open: 'Abrir Daily Companion',
+          installBtn: '⬇︎ Instalar app', installNote: 'Se añade a tu pantalla de inicio. Gratis, sin tienda de apps.',
+          iosTitle: 'Instalar en iPhone',
+          ios1: 'Toca el botón <b>Compartir</b> {share} abajo en Safari (arriba en iPad).',
+          ios2: 'Desliza y toca <b>Añadir a pantalla de inicio</b>.',
+          ios3: 'Toca <b>Añadir</b>. Luego abre <b>Companion</b> desde tu pantalla de inicio: las notificaciones solo funcionan ahí.',
+          iosNote: 'Las notificaciones necesitan iOS 16.4 o posterior.',
+          iosOther: 'Es más fácil en <b>Safari</b>: copia el enlace de esta página, ábrelo en Safari y sigue los pasos. (Las versiones recientes de Chrome también tienen <b>Añadir a pantalla de inicio</b> en su menú Compartir.)',
+          copyLink: 'Copiar enlace', copy: 'Copiar', copied: 'Copiado ✓',
+          androidTitle: 'Instalar en Android', android1: 'Abre el menú del navegador <b>⋮</b>.', android2: 'Toca <b>Instalar app</b> o <b>Añadir a pantalla de inicio</b>.',
+          desktopTitle: 'Ábrelo en tu móvil', desktopText: 'Daily Companion está pensado para tu móvil. Abre esta dirección en él:',
+          desktopNote: 'En un ordenador también puedes instalarla desde el icono de instalar de la barra de direcciones, o simplemente <a href="./#/today">abrirla en el navegador</a>.',
+          f1t: '📅 Plan diario', f1: 'Hecho para días cortos, días largos y exámenes.',
+          f2t: '💬 Coach', f2: 'Mensajes cortos y honestos en el momento justo.',
+          f3t: '⚡ Misiones', f3: 'XP, niveles y rachas.',
+          f4t: '📴 Sin conexión', f4: 'Funciona sin cobertura y sincroniza después.',
+          continue: 'Continuar en el navegador →' },
+        de: { name: 'Deutsch', title: 'Daily Companion installieren',
+          lead: 'Dein persönlicher Coach: Tagesplan, Quests, Essen, Training, Schlaf und ehrliche Check-ins.',
+          installed: 'Du nutzt die installierte App.', open: 'Daily Companion öffnen',
+          installBtn: '⬇︎ App installieren', installNote: 'Wird zum Startbildschirm hinzugefügt. Kostenlos, ohne App Store.',
+          iosTitle: 'Auf dem iPhone installieren',
+          ios1: 'Tippe unten in Safari auf <b>Teilen</b> {share} (auf dem iPad oben).',
+          ios2: 'Scrolle und tippe auf <b>Zum Home-Bildschirm</b>.',
+          ios3: 'Tippe auf <b>Hinzufügen</b>. Öffne dann <b>Companion</b> vom Home-Bildschirm – nur dort funktionieren Benachrichtigungen.',
+          iosNote: 'Benachrichtigungen brauchen iOS 16.4 oder neuer.',
+          iosOther: 'Am einfachsten in <b>Safari</b>: Kopiere den Link dieser Seite, öffne ihn in Safari und folge den Schritten. (Neuere Chrome-Versionen haben <b>Zum Home-Bildschirm</b> ebenfalls im Teilen-Menü.)',
+          copyLink: 'Link kopieren', copy: 'Kopieren', copied: 'Kopiert ✓',
+          androidTitle: 'Auf Android installieren', android1: 'Öffne das Browsermenü <b>⋮</b>.', android2: 'Tippe auf <b>App installieren</b> oder <b>Zum Startbildschirm hinzufügen</b>.',
+          desktopTitle: 'Auf dem Handy öffnen', desktopText: 'Daily Companion ist für dein Handy gemacht. Öffne diese Adresse dort:',
+          desktopNote: 'Am Computer kannst du sie auch über das Installieren-Symbol in der Adressleiste installieren oder einfach <a href="./#/today">im Browser öffnen</a>.',
+          f1t: '📅 Tagesplan', f1: 'Passend zu kurzen Tagen, langen Tagen und Prüfungen.',
+          f2t: '💬 Coach', f2: 'Kurze, ehrliche Nachrichten im richtigen Moment.',
+          f3t: '⚡ Quests', f3: 'XP, Level und Serien.',
+          f4t: '📴 Offline', f4: 'Funktioniert ohne Netz und synchronisiert später.',
+          continue: 'Im Browser weiter →' },
+        ru: { name: 'Русский', title: 'Установить Daily Companion',
+          lead: 'Твой личный тренер: план на день, квесты, еда, тренировки, сон и честные чек-ины.',
+          installed: 'Ты используешь установленное приложение.', open: 'Открыть Daily Companion',
+          installBtn: '⬇︎ Установить', installNote: 'Добавляется на главный экран. Бесплатно, без магазина приложений.',
+          iosTitle: 'Установка на iPhone',
+          ios1: 'Нажми кнопку <b>Поделиться</b> {share} внизу Safari (на iPad — вверху).',
+          ios2: 'Прокрути и нажми <b>На экран «Домой»</b>.',
+          ios3: 'Нажми <b>Добавить</b>. Потом открой <b>Companion</b> с экрана «Домой» — уведомления работают только там.',
+          iosNote: 'Для уведомлений нужна iOS 16.4 или новее.',
+          iosOther: 'Проще всего в <b>Safari</b>: скопируй ссылку на эту страницу, открой её в Safari и следуй шагам. (В новых версиях Chrome пункт <b>На экран «Домой»</b> тоже есть в меню «Поделиться».)',
+          copyLink: 'Копировать ссылку', copy: 'Копировать', copied: 'Скопировано ✓',
+          androidTitle: 'Установка на Android', android1: 'Открой меню браузера <b>⋮</b>.', android2: 'Нажми <b>Установить приложение</b> или <b>Добавить на главный экран</b>.',
+          desktopTitle: 'Открой на телефоне', desktopText: 'Daily Companion создан для телефона. Открой на нём этот адрес:',
+          desktopNote: 'На компьютере можно установить через значок установки в адресной строке или просто <a href="./#/today">открыть в браузере</a>.',
+          f1t: '📅 План на день', f1: 'Под короткие и длинные дни и экзамены.',
+          f2t: '💬 Тренер', f2: 'Короткие честные сообщения в нужный момент.',
+          f3t: '⚡ Квесты', f3: 'XP, уровни и серии.',
+          f4t: '📴 Офлайн', f4: 'Работает без сети, синхронизирует позже.',
+          continue: 'Продолжить в браузере →' },
+        zh: { name: '中文', title: '安装 Daily Companion',
+          lead: '你的私人教练：每日计划、任务、饮食、训练、睡眠和真实的打卡。',
+          installed: '你正在使用已安装的应用。', open: '打开 Daily Companion',
+          installBtn: '⬇︎ 安装应用', installNote: '添加到主屏幕。免费，无需应用商店。',
+          iosTitle: '在 iPhone 上安装',
+          ios1: '点击 Safari 底部的<b>分享</b>按钮 {share}（iPad 在顶部）。',
+          ios2: '向下滑动，点击<b>添加到主屏幕</b>。',
+          ios3: '点击<b>添加</b>。然后从主屏幕打开 <b>Companion</b>——只有这样才能收到通知。',
+          iosNote: '通知需要 iOS 16.4 或更高版本。',
+          iosOther: '用 <b>Safari</b> 最方便：复制本页链接，在 Safari 中打开，然后按步骤操作。（新版 Chrome 的分享菜单中也有<b>添加到主屏幕</b>。）',
+          copyLink: '复制链接', copy: '复制', copied: '已复制 ✓',
+          androidTitle: '在 Android 上安装', android1: '打开浏览器菜单 <b>⋮</b>。', android2: '点击<b>安装应用</b>或<b>添加到主屏幕</b>。',
+          desktopTitle: '在手机上打开', desktopText: 'Daily Companion 是为手机设计的。请在手机上打开这个地址：',
+          desktopNote: '在电脑上也可以通过地址栏的安装图标安装，或者直接<a href="./#/today">在浏览器中打开</a>。',
+          f1t: '📅 每日计划', f1: '根据短课日、长课日和考试安排。',
+          f2t: '💬 教练', f2: '在合适的时候发来简短、真实的消息。',
+          f3t: '⚡ 任务', f3: '经验值、等级和连续天数。',
+          f4t: '📴 离线可用', f4: '没有信号也能用，之后再同步。',
+          continue: '在浏览器中继续 →' },
+        ar: { name: 'العربية', title: 'تثبيت Daily Companion',
+          lead: 'مدرّبك الشخصي: خطة يومية، مهام، طعام، تمارين، نوم، وتسجيل يومي صادق.',
+          installed: 'أنت تستخدم التطبيق المثبّت.', open: 'افتح Daily Companion',
+          installBtn: '⬇︎ تثبيت التطبيق', installNote: 'يُضاف إلى شاشتك الرئيسية. مجاني ودون متجر تطبيقات.',
+          iosTitle: 'التثبيت على iPhone',
+          ios1: 'اضغط زر <b>المشاركة</b> {share} أسفل Safari (أعلى الشاشة في iPad).',
+          ios2: 'مرّر للأسفل واضغط <b>إضافة إلى الشاشة الرئيسية</b>.',
+          ios3: 'اضغط <b>إضافة</b>. ثم افتح <b>Companion</b> من الشاشة الرئيسية — الإشعارات تعمل من هناك فقط.',
+          iosNote: 'تتطلب الإشعارات iOS 16.4 أو أحدث.',
+          iosOther: 'الأسهل في <b>Safari</b>: انسخ رابط هذه الصفحة وافتحه في Safari ثم اتبع الخطوات. (الإصدارات الحديثة من Chrome فيها أيضًا <b>إضافة إلى الشاشة الرئيسية</b> في قائمة المشاركة.)',
+          copyLink: 'نسخ الرابط', copy: 'نسخ', copied: 'تم النسخ ✓',
+          androidTitle: 'التثبيت على Android', android1: 'افتح قائمة المتصفح <b>⋮</b>.', android2: 'اضغط <b>تثبيت التطبيق</b> أو <b>إضافة إلى الشاشة الرئيسية</b>.',
+          desktopTitle: 'افتحه على هاتفك', desktopText: 'صُمّم Daily Companion للهاتف. افتح هذا العنوان عليه:',
+          desktopNote: 'على الكمبيوتر يمكنك أيضًا تثبيته من أيقونة التثبيت في شريط العنوان، أو ببساطة <a href="./#/today">فتحه في المتصفح</a>.',
+          f1t: '📅 خطة يومية', f1: 'مبنية حول الأيام القصيرة والطويلة والامتحانات.',
+          f2t: '💬 المدرّب', f2: 'رسائل قصيرة وصادقة في الوقت المناسب.',
+          f3t: '⚡ المهام', f3: 'نقاط خبرة ومستويات وسلاسل.',
+          f4t: '📴 دون اتصال', f4: 'يعمل دون إشارة ويزامن لاحقًا.',
+          continue: 'المتابعة في المتصفح ←' },
+      };
+
+      // Language: the app's choice, else the phone's language, else English.
+      var lang = 'en';
+      try { lang = localStorage.getItem('dc.lang') || ''; } catch (e) {}
+      if (!T[lang]) lang = ((navigator.languages || [navigator.language || 'en'])[0] || 'en').slice(0, 2).toLowerCase();
+      if (!T[lang]) lang = 'en';
+
+      function apply(code) {
+        lang = T[code] ? code : 'en';
+        var d = T[lang];
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        document.title = d.title;
+        document.querySelectorAll('[data-i18n]').forEach(function (el) {
+          var v = d[el.getAttribute('data-i18n')] || T.en[el.getAttribute('data-i18n')] || '';
+          el.innerHTML = v.replace('{share}', SHARE);
+        });
+        document.querySelectorAll('#langs button').forEach(function (b) { b.classList.toggle('on', b.dataset.code === lang); });
+      }
+      var langs = document.getElementById('langs');
+      Object.keys(T).forEach(function (code) {
+        var b = document.createElement('button');
+        b.textContent = T[code].name;
+        b.dataset.code = code;
+        b.addEventListener('click', function () {
+          try { localStorage.setItem('dc.lang', code); } catch (e) {}
+          apply(code);
+        });
+        langs.appendChild(b);
+      });
+      apply(lang);
+
+      // ---- Which install instructions to show ------------------------------------
       var ua = navigator.userAgent;
       var iOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       var android = /Android/.test(ua);
@@ -128,8 +281,8 @@
       function copy(btn) {
         var link = location.origin + '/download';
         (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function () {
-          btn.textContent = 'Copied ✓';
-        }, function () { prompt('Copy this link:', link); });
+          btn.textContent = T[lang].copied;
+        }, function () { prompt(T[lang].copyLink, link); });
       }
       document.getElementById('copyBtn').addEventListener('click', function () { copy(this); });
       document.getElementById('copyBtn2').addEventListener('click', function () { copy(this); });
