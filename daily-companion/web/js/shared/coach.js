@@ -118,12 +118,13 @@ export function composeMessage(key, ctx) {
 
     case 'morning_exam': {
       const e = plan.exam;
+      if (!e) return null; // exam was removed from today's plan
       const tpl = e.subject && e.time ? T.morningExam.full : e.subject ? T.morningExam.subject : e.time ? T.morningExam.time : T.morningExam.plain;
       return { title, body: f(tpl, { subject: e.subject, time: e.time }), data: { type: 'exam' } };
     }
 
     case 'gym': {
-      if (day.workouts.length) return null; // already trained
+      if (!plan.gym || day.workouts.length) return null; // gym moved off today, or already trained
       const lines = [f(T.gym.pre, { split: split(plan.gym) })];
       const best = lastTopSet(plan.gym, ctx);
       if (best) {

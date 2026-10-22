@@ -127,7 +127,14 @@ async function tickUser(db: SupabaseClient, profile: { user_id: string; settings
 
   const out = [];
   for (const m of due) {
-    const msg = composeMessage(m.key, ctx);
+    // One broken message must not block the others (they'd be retried every
+    // minute and the rest of the evening would never arrive).
+    let msg;
+    try { msg = composeMessage(m.key, ctx); } catch (e) {
+      console.error('compose failed', m.key, e);
+      out.push({ key: m.key, error: String(e) });
+      continue;
+    }
     if (!msg) {
       // Not needed after all (e.g. goal already hit). Record it so we don't re-check all window.
       if (!dryRun) await db.from('coach_messages').insert({ user_id: uid, date, key: m.key, kind: 'coach', body: '', data: { type: 'skipped' }, deleted: true, read_at: now.toISOString() });

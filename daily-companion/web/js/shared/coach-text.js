@@ -59,6 +59,10 @@ export const TEXT = {
       ask: 'Check-in: did you study? Did you train? Tap to answer.',
       tomorrow: 'Anything different tomorrow — exam, longer day? Plan it now so the morning is easy.',
     },
+    winddown: {
+      base: "Wind-down time: screens away, get ready for bed. Lights out at {lightsOut}.",
+      exam: "Exam tomorrow. Wind down now and get a full night: lights out at {lightsOut}. Sleep helps more than another hour of cramming.",
+    },
     summary: {
       head: 'Your day:',
       study: 'Study {done} / {goal}',
@@ -170,6 +174,10 @@ export const TEXT = {
     checkin: {
       ask: 'Check-in: ¿has estudiado? ¿Has entrenado? Toca para responder.',
       tomorrow: '¿Algo distinto mañana, como un examen o un día más largo? Planéalo ahora y la mañana será fácil.',
+    },
+    winddown: {
+      base: "Hora de desconectar: deja las pantallas y prepárate para dormir. Luces fuera a las {lightsOut}.",
+      exam: "Mañana tienes examen. Desconecta ya y duerme bien: luces fuera a las {lightsOut}. Dormir te ayuda más que otra hora de estudio.",
     },
     summary: {
       head: 'Tu día:',
@@ -283,6 +291,10 @@ export const TEXT = {
       ask: 'Check-in: Hast du gelernt? Hast du trainiert? Tippe zum Antworten.',
       tomorrow: 'Ist morgen etwas anders – Prüfung, längerer Tag? Plan es jetzt, dann wird der Morgen leicht.',
     },
+    winddown: {
+      base: "Zeit zum Runterfahren: Bildschirme weg, mach dich bettfertig. Licht aus um {lightsOut}.",
+      exam: "Morgen ist Prüfung. Fahr jetzt runter und schlaf genug: Licht aus um {lightsOut}. Schlaf bringt mehr als noch eine Stunde Lernen.",
+    },
     summary: {
       head: 'Dein Tag:',
       study: 'Lernen {done} / {goal}',
@@ -394,6 +406,10 @@ export const TEXT = {
     checkin: {
       ask: 'Чек-ин: учился? Тренировался? Нажми, чтобы ответить.',
       tomorrow: 'Завтра что-то иначе — экзамен, длинный день? Запланируй сейчас, и утро будет лёгким.',
+    },
+    winddown: {
+      base: "Пора отдыхать: убери экраны и готовься ко сну. Отбой в {lightsOut}.",
+      exam: "Завтра экзамен. Отдыхай и выспись: отбой в {lightsOut}. Сон поможет больше, чем ещё час зубрёжки.",
     },
     summary: {
       head: 'Твой день:',
@@ -507,6 +523,10 @@ export const TEXT = {
       ask: '打卡：今天学习了吗？训练了吗？点击回答。',
       tomorrow: '明天有什么不同吗——考试、课更多？现在安排好，早上就轻松了。',
     },
+    winddown: {
+      base: "该放松了：放下屏幕，准备睡觉。{lightsOut} 熄灯。",
+      exam: "明天有考试。现在放松，睡个好觉：{lightsOut} 熄灯。睡眠比多复习一小时更有用。",
+    },
     summary: {
       head: '你的一天：',
       study: '学习 {done} / {goal}',
@@ -618,6 +638,10 @@ export const TEXT = {
     checkin: {
       ask: 'تسجيل اليوم: هل ذاكرت؟ هل تمرّنت؟ اضغط للإجابة.',
       tomorrow: 'هل هناك شيء مختلف غدًا — امتحان أو يوم أطول؟ خطط له الآن ليكون الصباح سهلًا.',
+    },
+    winddown: {
+      base: "حان وقت الاسترخاء: ابتعد عن الشاشات واستعد للنوم. إطفاء الأنوار عند {lightsOut}.",
+      exam: "غدًا امتحان. استرخِ الآن ونم جيدًا: إطفاء الأنوار عند {lightsOut}. النوم يفيدك أكثر من ساعة مذاكرة إضافية.",
     },
     summary: {
       head: 'يومك:',

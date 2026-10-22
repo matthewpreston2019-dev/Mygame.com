@@ -273,6 +273,28 @@ test('composed messages are honest and skip when not needed', () => {
   assert.equal(composeMessage('nudge_study', { ...ctx, stats: st2 }), null);
 });
 
+test('every coach message composes in every language (no missing text, no leftover {placeholders})', () => {
+  const KEYS = ['plan', 'morning_exam', 'gym', 'study_start', 'study_end', 'nudge_gym', 'nudge_study', 'checkin', 'summary', 'winddown', 'weekly'];
+  const templates = [{ id: 't1', key: 'upper', exercises: [{ id: 'bench', sets: 3, reps: '6-8' }] }, { id: 't2', key: 'lower', exercises: [{ id: 'squat', sets: 3, reps: '6-8' }] }];
+  // Mon short day, Tue long day with an exam the next day, Wed exam day, Sun (weekly report).
+  const plans = [{ date: '2026-10-21', exam: { subject: 'Bio', time: '08:00' } }];
+  const st = createStats({ ...data(), day_plans: plans }, S);
+  for (const lang of Object.keys(TEXT)) {
+    for (const date of ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-25']) {
+      const ctx = { lang, settings: S, stats: st, date, templates };
+      for (const key of KEYS) {
+        const msg = composeMessage(key, ctx); // must not throw
+        if (msg === null) continue; // not needed that day
+        assert.ok(msg.title && msg.body, `${lang} ${date} ${key}: empty`);
+        assert.doesNotMatch(msg.body, /\{\w+\}|undefined|NaN/, `${lang} ${date} ${key}: ${msg.body}`);
+      }
+    }
+  }
+  const wd = (date) => composeMessage('winddown', { lang: 'en', settings: S, stats: st, date, templates }).body;
+  assert.match(wd('2026-10-20'), /Exam tomorrow.*22:30/);
+  assert.match(wd('2026-10-19'), /Lights out at 22:30/);
+});
+
 test('summary names misses honestly', () => {
   const d = '2026-10-19';
   const st = createStats({ ...data(), study_sessions: [{ id: 's', date: d, minutes: 30 }], foods: [{ id: 'f', date: d, kcal: 1800, protein: 90, eaten_at: '2026-10-19T10:00:00Z' }] }, S);
