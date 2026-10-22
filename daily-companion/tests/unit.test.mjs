@@ -478,6 +478,9 @@ test('weekend exams: study and catch-up gym move to after the exam, reminder nev
   const push = messageSchedule(catchUp, S).find((m) => m.key === 'gym');
   assert.ok(push.atMin <= gym.startMin);
   assert.ok(exam);
+  // Without an exam, weekend blocks stay exactly where you put them.
+  const noExam = buildDayPlan({ date: sat, settings: mergeSettings({ schedule: { weekendGymAt: '11:30' } }), gymWeek: { behind: 1, nextSplit: 'upper' } });
+  assert.equal(block(noExam, 'gym').start, '11:30');
 });
 
 test('lights out: after midnight wraps, an evening mix-up does not', () => {

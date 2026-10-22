@@ -6,7 +6,7 @@
 import { html, useState } from '../lib/preact.js';
 import * as store from '../lib/store.js';
 import { t, setLanguage, getLang, ltr } from '../lib/i18n.js';
-import { LANGUAGES, suggestTargets } from '../shared/defaults.js';
+import { LANGUAGES, suggestTargets, DEFAULT_SETTINGS } from '../shared/defaults.js';
 import { isHHMM, toMinutes, toHHMM } from '../shared/time.js';
 import { Field, Seg } from '../components/common.js';
 import { Icon } from '../components/icons.js';
@@ -55,10 +55,12 @@ export function Onboarding() {
   // Your evening runs check-in → wind-down → lights out (Settings checks
   // this order). This step only asks for lights out, so an earlier lights out
   // moves wind-down to 30 min and check-in to 90 min before it.
-  // 00:00–04:00 counts as after midnight and changes nothing.
+  // 00:00–04:00 counts as after midnight and changes nothing. Starts from the
+  // defaults, so going through setup again can undo an earlier adjustment.
+  const usual = DEFAULT_SETTINGS.schedule;
   function evening() {
     const lo = toMinutes(week.lightsOut);
-    let wd = toMinutes(s.schedule.windDownAt), ci = toMinutes(s.schedule.checkinAt);
+    let wd = toMinutes(usual.windDownAt), ci = toMinutes(usual.checkinAt);
     if (lo > 240 && lo <= wd) { wd = lo - 30; ci = Math.min(ci, wd - 60); }
     return { windDownAt: toHHMM(wd), checkinAt: toHHMM(ci) };
   }
@@ -68,8 +70,7 @@ export function Onboarding() {
     for (const k of ['short', 'long', 'lightsOut']) if (!isHHMM(week[k])) e[k] = t('validate.time');
     if (!Object.keys(e).length) {
       // School has to end before the evening check-in.
-      const usual = s.schedule.checkinAt;
-      for (const k of ['short', 'long']) if (toMinutes(week[k]) >= toMinutes(usual)) e[k] = t('schedule.beforeTime', { time: ltr(usual) });
+      for (const k of ['short', 'long']) if (toMinutes(week[k]) >= toMinutes(usual.checkinAt)) e[k] = t('schedule.beforeTime', { time: ltr(usual.checkinAt) });
       const freeEnd = Math.max(toMinutes(week.short), toMinutes(week.long));
       if (!e.short && !e.long && toMinutes(evening().checkinAt) <= freeEnd) e.lightsOut = t('schedule.eveningAfter', { time: ltr(toHHMM(freeEnd + 90)) });
     }

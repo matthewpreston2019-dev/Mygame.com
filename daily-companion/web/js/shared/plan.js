@@ -193,7 +193,7 @@ export function buildDayPlan({ date, settings, override, nextOverride, gymWeek }
   } else if (type === 'weekend') {
     if (study > 0 && isHHMM(s.weekendStudyAt)) {
       const st = firstFreeAt(toMinutes(s.weekendStudyAt), study);
-      busy.push([st, st + study]);
+      if (busy.length) busy.push([st, st + study]); // with an exam, the gym also moves past study
       add({ id: 'study', kind: 'study', start: toHHMM(st), end: toHHMM(st + study), minutes: study, focus: plan.studyFocus });
     }
     if (gym && isHHMM(s.weekendGymAt)) {

@@ -12,6 +12,7 @@ import { blockName, splitName } from '../shared/names.js';
 import { SheetFrame, Seg, Field, Toggle } from '../components/common.js';
 import { Icon } from '../components/icons.js';
 import { openSheet, toast } from '../lib/ui.js';
+import { today } from '../lib/quests.js';
 
 export function dayTypeLabel(type) {
   return { short: t('dayType.short'), long: t('dayType.long'), weekend: t('dayType.free'), rest: t('dayType.rest') }[type] || type;
@@ -62,12 +63,18 @@ function DayPlanner({ date, close }) {
     const isDefault = !row.day_type && !row.free_from && !row.exam && !row.skip_gym && !row.skip_study && !row.note;
     if (isDefault) { if (existing) store.remove('day_plans', { date }); }
     else store.put('day_plans', row);
+    unfreeze();
     toast(t('planner.saved'));
     close(true);
   }
 
+  // A finished day's quests are frozen (day_scores, see shared/stats.js).
+  // Re-planning it counts it again by the new plan (it's frozen again later).
+  const unfreeze = () => { if (date < today()) store.remove('day_scores', { date }); };
+
   function reset() {
     if (existing) store.remove('day_plans', { date });
+    unfreeze();
     toast(t('planner.reset'));
     close(true);
   }

@@ -84,9 +84,12 @@ export function reconcileQuests() {
       }
     }
     // Freeze each finished day of the last week once: which quests counted
-    // then (see completion in shared/stats.js). Only after a full download, so
-    // a fresh install doesn't freeze days before your data has arrived.
-    if (store.status.synced) {
+    // then (see completion in shared/stats.js). Only right after a download
+    // that finished today, never while one is running, so a fresh install or a
+    // phone coming back from the background (which may not have changes made on
+    // another device yet) doesn't freeze old data.
+    const pulledToday = store.status.lastSyncAt && dateInTz(store.settings().timezone, new Date(store.status.lastSyncAt)) === todayStr;
+    if (store.status.synced && !store.status.syncing && pulledToday) {
       for (let i = 1; i < 7; i++) {
         const date = addDays(todayStr, -i);
         if (store.find('day_scores', { date })) continue;
