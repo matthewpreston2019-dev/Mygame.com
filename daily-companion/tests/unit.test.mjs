@@ -212,6 +212,26 @@ test('streak: unfinished today never breaks it; a weak day does', () => {
   assert.equal(st.bestStreak('2026-10-20'), 3);
 });
 
+test('finished days are frozen: later settings changes do not rewrite them', () => {
+  const tue = '2026-10-20';
+  const logs = ['q1', 'q2', 'q3'].map((id) => ({ quest_id: id, date: tue, xp: 10 }));
+  const snap = { date: tue, quest_ids: ['q1', 'q2', 'q3'], updated_at: '2026-10-21T08:00:00.000Z' };
+  const gymOnTue = mergeSettings({ schedule: { gymDays: { 2: 'upper' } } }); // gym moved onto Tuesdays
+  const opts = { today: '2026-10-22' };
+  const live = createStats(data({ quest_log: logs }), gymOnTue, opts);
+  assert.equal(live.completion(tue).applicable, 4); // no snapshot: judged by today's gym days
+  const frozen = createStats(data({ quest_log: logs, day_scores: [snap] }), gymOnTue, opts);
+  assert.deepEqual([frozen.completion(tue).done, frozen.completion(tue).applicable], [3, 3]);
+  // A log removed later lowers it; re-planning that day afterwards makes it live again.
+  const unticked = createStats(data({ quest_log: logs.slice(1), day_scores: [snap] }), gymOnTue, opts);
+  assert.deepEqual([unticked.completion(tue).done, unticked.completion(tue).applicable], [2, 3]);
+  const replanned = createStats(data({ quest_log: logs, day_scores: [snap], day_plans: [{ date: tue, day_type: 'short', updated_at: '2026-10-21T09:00:00+00:00' }] }), gymOnTue, opts);
+  assert.equal(replanned.completion(tue).applicable, 4);
+  // Today is never frozen.
+  assert.equal(createStats(data({ day_scores: [{ ...snap, date: '2026-10-22' }] }), gymOnTue, opts).completion('2026-10-22').applicable,
+    live.liveCompletion('2026-10-22').applicable);
+});
+
 test('sleep score needs 3 nights and rewards consistency', () => {
   const mk = (date, bed, wake) => ({
     date,
@@ -431,7 +451,7 @@ test('an exam after school is a fixed block: nothing overlaps it', () => {
     const p = buildDayPlan({ date: '2026-10-19', settings: S, override: { exam: { subject: 'Bio', time: at } } });
     const exam = block(p, 'exam');
     for (const b of p.blocks.filter((x) => ['relax', 'gym', 'refuel', 'study'].includes(x.kind))) {
-      assert.ok(b.startMin >= exam.endMin, `${at}: ${b.kind} ${b.start} overlaps the exam`);
+      assert.ok(b.endMin <= exam.startMin || b.startMin >= exam.endMin, `${at}: ${b.kind} ${b.start} overlaps the exam`);
     }
     assert.ok(block(p, 'study').endMin <= time.toMinutes('21:00'));
     const gymPush = messageSchedule(p, S).find((m) => m.key === 'gym');
@@ -440,6 +460,34 @@ test('an exam after school is a fixed block: nothing overlaps it', () => {
   // A morning exam doesn't move the afternoon.
   const am = buildDayPlan({ date: '2026-10-19', settings: S, override: { exam: { subject: 'Bio', time: '10:00' } } });
   assert.equal(block(am, 'relax').start, '14:30');
+  // An evening exam: everything still fits before it, so the gym stays.
+  const pm = buildDayPlan({ date: '2026-10-19', settings: S, override: { exam: { subject: 'Bio', time: '19:00' } } });
+  assert.ok(pm.gym && !pm.gymMoved, 'gym kept');
+  assert.equal(pm.studyGoal, 60); // exam day: half the usual study
+  assert.ok(block(pm, 'study').endMin <= time.toMinutes('19:00'));
+});
+
+test('weekend exams: study and catch-up gym move to after the exam, reminder never after the gym starts', () => {
+  const sat = '2026-10-24';
+  const p = buildDayPlan({ date: sat, settings: S, override: { exam: { subject: 'Bio', time: '10:30' } } });
+  const exam = block(p, 'exam');
+  assert.equal(block(p, 'study').start, '12:00');
+  const catchUp = buildDayPlan({ date: sat, settings: S, override: { exam: { subject: 'Bio', time: '14:30' } }, gymWeek: { behind: 1, nextSplit: 'upper' } });
+  const gym = block(catchUp, 'gym');
+  assert.ok(gym.startMin >= block(catchUp, 'exam').endMin, `gym ${gym.start} overlaps the exam`);
+  const push = messageSchedule(catchUp, S).find((m) => m.key === 'gym');
+  assert.ok(push.atMin <= gym.startMin);
+  assert.ok(exam);
+});
+
+test('lights out: after midnight wraps, an evening mix-up does not', () => {
+  const at = (lightsOut, windDownAt = '22:00') => buildDayPlan({ date: '2026-10-19', settings: mergeSettings({ schedule: { lightsOut, windDownAt } }) });
+  const late = at('00:30');
+  assert.equal(block(late, 'winddown').endMin, 1440 + 30);
+  assert.equal(late.blocks[late.blocks.length - 1].kind, 'sleep'); // sorted last
+  const mixUp = at('21:30');
+  assert.equal(block(mixUp, 'winddown').endMin, block(mixUp, 'winddown').startMin); // no 23.5 h wind-down
+  assert.equal(block(mixUp, 'sleep').startMin, time.toMinutes('21:30'));
 });
 
 test('late check-in still gets its summary; 00:00 check-in doesn\'t squash the plan', () => {
@@ -640,11 +688,18 @@ serverTest('steps endpoint: a missing or empty value is an error and never overw
     assert.equal(res.status, 400, label);
     assert.equal(stored(), 9000, label);
   }
-  // A lower Shortcut reading for the same day (Health unreadable → 0) keeps the stored count.
+  // A 0 for a day that has steps (Health unreadable) keeps the stored count…
   const zero = await post(JSON.stringify({ steps: 0, date: today }));
   assert.deepEqual([zero.status, zero.body.kept, stored()], [200, true, 9000]);
   const more = await post(JSON.stringify({ steps: '9.500', date: today }));
   assert.deepEqual([more.status, stored()], [200, 9500]);
+  // …also when it was typed in by hand.
+  db.tables.steps[0].source = 'manual';
+  const zeroManual = await post(JSON.stringify({ steps: 0, date: today }));
+  assert.deepEqual([zeroManual.body.kept, stored()], [true, 9500]);
+  // A lower real reading replaces it (e.g. a double-counting Shortcut was fixed).
+  const lower = await post(JSON.stringify({ steps: 8000, date: today }));
+  assert.deepEqual([lower.status, lower.body.kept, stored()], [200, undefined, 8000]);
 
   assert.equal(fn.parseSteps('8,123'), 8123);
   assert.equal(fn.parseSteps(8123.4), 8123);

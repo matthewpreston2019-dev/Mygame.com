@@ -6,7 +6,7 @@
 //   otherwise            → tabs (Today, Coach, Track, Calendar, Profile)
 // =============================================================================
 
-import { html, useEffect, useState } from './lib/preact.js';
+import { html, useEffect, useLayoutEffect, useState } from './lib/preact.js';
 import { supa } from './lib/supa.js';
 import * as store from './lib/store.js';
 import { t, getLang, setLanguage, onLangChange } from './lib/i18n.js';
@@ -123,7 +123,9 @@ function Shell() {
   const unread = store.rows('coach_messages').filter((m) => m.kind === 'coach' && !m.read_at).length;
 
   // Scroll to top when switching tabs.
-  useEffect(() => { scrollTo(0, 0); }, [tab.id]);
+  // Layout effect: runs before the new screen's own effects, so a screen that
+  // scrolls somewhere on open (e.g. Calendar to the current time) wins.
+  useLayoutEffect(() => { scrollTo(0, 0); }, [tab.id]);
 
   // Keep the app icon badge in sync with unread coach messages (iOS 16.4+ / Android).
   useEffect(() => {

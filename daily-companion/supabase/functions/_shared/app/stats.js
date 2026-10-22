@@ -30,7 +30,7 @@ export function levelFromXp(xp) {
 
 const EMPTY_TABLES = [
   'foods', 'steps', 'study_sessions', 'workouts', 'workout_sets', 'checkins', 'sleep_logs',
-  'quests', 'quest_log', 'day_plans', 'weights', 'events', 'workout_templates',
+  'quests', 'quest_log', 'day_plans', 'weights', 'events', 'workout_templates', 'day_scores',
 ];
 
 function groupBy(rows, key) {
@@ -72,6 +72,8 @@ export function createStats(rawData, settings, opts = {}) {
   const checkinBy = mapBy(data.checkins, 'date');
   const sleepBy = mapBy(data.sleep_logs, 'date');
   const overrideBy = mapBy(data.day_plans, 'date');
+  const scoreBy = mapBy(data.day_scores, 'date'); // frozen finished days, see completion
+  const logsBy = groupBy(data.quest_log, 'date');
   const questLog = new Map(data.quest_log.map((r) => [`${r.quest_id}|${r.date}`, r]));
   // All quests, including switched-off ones: a quest you switch off today
   // still counted on the days before (see questLiveOn).
@@ -142,9 +144,10 @@ export function createStats(rawData, settings, opts = {}) {
    *
    * Past days are history: a quest with an XP entry (quest_log) on a day
    * before today stays applicable and done on that day — it was earned under
-   * the targets and schedule you had back then. So raising a target, changing
-   * a quest's days or your gym days later doesn't take back XP or break your
-   * streak. Today always follows the live data (delete a meal → XP goes back).
+   * the targets and schedule you had back then, so raising a target later
+   * doesn't take back XP. Quests you missed are judged here by today's
+   * settings; streaks and reports use completion(), which freezes finished
+   * days. Today always follows the live data (delete a meal → XP goes back).
    */
   function questsFor(date) {
     const plan = planFor(date);
@@ -180,11 +183,28 @@ export function createStats(rawData, settings, opts = {}) {
     });
   }
 
-  /** How much of a day's quests were done. */
-  function completion(date) {
+  /** How much of a day's quests were done, judged by today's quests and settings. */
+  function liveCompletion(date) {
     const qs = questsFor(date).filter((q) => q.applicable);
     const done = qs.filter((q) => q.done).length;
     return { applicable: qs.length, done, ratio: qs.length ? done / qs.length : 0 };
+  }
+
+  /**
+   * How much of a day's quests were done. A finished day with a saved
+   * day_scores row is frozen: the quests that counted then come from it, and
+   * done = quests with an XP entry that day (so a late log still counts).
+   * Changing gym days, quest days, targets or the quest list later doesn't
+   * rewrite it. Re-planning that day in the planner afterwards makes it live
+   * again.
+   */
+  function completion(date) {
+    const snap = date < asOf ? scoreBy.get(date) : null;
+    const o = overrideBy.get(date);
+    if (!snap || (o && Date.parse(o.updated_at) > Date.parse(snap.updated_at))) return liveCompletion(date);
+    const logged = new Set((logsBy.get(date) || []).map((r) => r.quest_id));
+    const applicable = new Set([...(snap.quest_ids || []), ...logged]).size;
+    return { applicable, done: logged.size, ratio: applicable ? logged.size / applicable : 0 };
   }
 
   /**
@@ -321,7 +341,7 @@ export function createStats(rawData, settings, opts = {}) {
   }
 
   return {
-    data, planFor, day, questsFor, completion, streak, bestStreak, sleepScore, summary, week,
+    data, planFor, day, questsFor, completion, liveCompletion, streak, bestStreak, sleepScore, summary, week,
     xp: xpTotal, level: levelFromXp(xpTotal),
     countedWorkouts, setsByWorkout,
   };

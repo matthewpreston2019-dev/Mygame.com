@@ -600,6 +600,8 @@ button.badge::after { content: ""; position: absolute; inset: -7px -2px; }
   box-shadow: var(--shadow); animation: toast-in 0.3s var(--spring);
 }
 .rest-timer .tm { font-size: 22px; font-weight: 780; font-variant-numeric: tabular-nums; }
+/* Room at the end of the workout while the timer covers the bottom of the screen. */
+.rest-spacer { height: 64px; }
 
 /* ---------- Install page / prompt ----------------------------------------- */
 .steps-list { counter-reset: s; list-style: none; padding: 0; margin: 0; }

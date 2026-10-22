@@ -113,6 +113,7 @@ export default {
     failed: { one: '1 Änderung wurde vom Server abgelehnt.', other: '{n} Änderungen wurden vom Server abgelehnt.' },
   },
   schedule: {
+    beforeTime: "Wähle eine Uhrzeit vor {time}",
     eveningAfter: "Wähle eine Abendzeit nach {time}",
     dayTypes: 'Tagesarten', dayTypesHint: 'Kurze Tage: mehr Zeit nach der Schule. Lange Tage: du bist müde, deshalb leichter. Freie Tage: flexibel.',
     afterSchool: 'Nach der Schule', schoolStart: 'Schulbeginn', shortFree: 'Kurze Tage frei ab', longFree: 'Lange Tage frei ab',

@@ -43,6 +43,7 @@ export const TABLES = {
   day_plans:         { key: ['date'], conflict: 'user_id,date' },
   sleep_logs:        { key: ['date'], conflict: 'user_id,date' },
   checkins:          { key: ['date'], conflict: 'user_id,date' },
+  day_scores:        { key: ['date'], conflict: 'user_id,date' },
   coach_messages:    { key: ['id'] },
 };
 const TABLE_NAMES = Object.keys(TABLES);
@@ -189,9 +190,12 @@ function persist(t, k, row) {
     // first, so uploads stay in order. If that fails again, this change waits
     // in memory behind them (see catch).
     for (const [uk, e] of [...unsaved]) {
+      if (g !== gen) return; // signed out meanwhile: don't write the old account's data back
+      if (unsaved.get(uk) !== e) continue; // already uploaded, or replaced by a newer change
       await idb.putRowAndQueue({ k: uk, t: e.t, row: e.row }, { t: e.t, k: e.k, row: e.row });
       if (unsaved.get(uk) === e) unsaved.delete(uk);
     }
+    if (g !== gen) return;
     status.storageError = unsaved.size > 0;
     // Saves the row and queues it in one go (an older unsent change to the
     // same row is replaced by this one).

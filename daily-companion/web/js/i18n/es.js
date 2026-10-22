@@ -113,6 +113,7 @@ export default {
     failed: { one: 'El servidor rechazó 1 cambio.', other: 'El servidor rechazó {n} cambios.' },
   },
   schedule: {
+    beforeTime: "Elige una hora antes de las {time}",
     eveningAfter: "Elige una hora de la noche después de las {time}",
     dayTypes: 'Tipos de día', dayTypesHint: 'Días cortos: más tiempo después de clase. Días largos: estás cansado, así que el plan es más ligero. Días libres: flexibles.',
     afterSchool: 'Después de clase', schoolStart: 'Empieza la clase', shortFree: 'Días cortos libre desde', longFree: 'Días largos libre desde',

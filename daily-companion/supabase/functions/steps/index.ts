@@ -62,15 +62,15 @@ Deno.serve(async (req) => {
   const date = rawDate ? rawDate : today;
   if (!isDateStr(date) || date < addDays(today, -7) || date > addDays(today, 1)) return json({ ok: false, error: 'date must be YYYY-MM-DD within the last 7 days' }, 400);
 
-  // Within a day Apple Health's count only goes up. A lower number from the
-  // Shortcut for a day it already sent (e.g. a late run while the phone is
-  // locked and Health can't be read → 0) is a failed read: keep the stored
-  // value. Only an earlier Shortcut value is kept this way; a manual entry is
-  // replaced as before, and you can always correct a day by hand in the app.
+  // A 0 for a day that already has steps is a failed read (e.g. the Shortcut
+  // ran while the phone was locked and Health couldn't be read): keep the
+  // stored number, whether it came from the Shortcut or was typed in. Any other
+  // number replaces it, also a lower one (e.g. after fixing a Shortcut that
+  // counted iPhone and Watch twice). You can always correct a day in the app.
   const { data: existing, error: readErr } = await db.from('steps').select('steps, source, deleted')
     .eq('user_id', profile.user_id).eq('date', date).maybeSingle();
   if (readErr) { console.error(readErr); return json({ ok: false, error: 'Server error' }, 500); }
-  if (existing && !existing.deleted && existing.source === 'shortcut' && existing.steps > steps) {
+  if (steps === 0 && existing && !existing.deleted && existing.steps > 0) {
     const kept = existing.steps;
     return json({ ok: true, date, steps: kept, kept: true, received: steps, goal: settings.targets.steps, goalReached: kept >= settings.targets.steps });
   }

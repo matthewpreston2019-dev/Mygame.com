@@ -35,7 +35,7 @@ const ORDER: Record<string, string[]> = {
   quest_log: ['date', 'quest_id'],
   quests: ['id'], workout_templates: ['id'],
   // one row per day:
-  steps: ['date'], checkins: ['date'], sleep_logs: ['date'], day_plans: ['date'], weights: ['date'],
+  steps: ['date'], checkins: ['date'], sleep_logs: ['date'], day_plans: ['date'], weights: ['date'], day_scores: ['date'],
 };
 
 /** How long a push may wait for a phone that's offline (seconds). "Gym in 30 min" is useless hours later. */
@@ -111,17 +111,17 @@ async function tickUser(db: SupabaseClient, profile: { user_id: string; settings
 
   // ---- Stage 2: load recent history and write the messages ----
   const from = addDays(date, due.some((m) => m.key === 'weekly') ? -STREAK_HISTORY_DAYS : -HISTORY_DAYS);
-  const [foods, steps, study, workouts, checkins, sleep, quests, questLog, plans, weights, templates] = await Promise.all([
+  const [foods, steps, study, workouts, checkins, sleep, quests, questLog, plans, weights, templates, dayScores] = await Promise.all([
     rows(db, 'foods', uid, from), rows(db, 'steps', uid, from), rows(db, 'study_sessions', uid, from),
     rows(db, 'workouts', uid, from), rows(db, 'checkins', uid, from), rows(db, 'sleep_logs', uid, from),
     // day_plans a week ahead: "next gym session" looks at the coming days' plans.
     rows(db, 'quests', uid), rows(db, 'quest_log', uid, from), rows(db, 'day_plans', uid, from, addDays(date, 8)),
-    rows(db, 'weights', uid, from), rows(db, 'workout_templates', uid),
+    rows(db, 'weights', uid, from), rows(db, 'workout_templates', uid), rows(db, 'day_scores', uid, from),
   ]);
   const sets = workouts.length ? await setsFor(db, workouts.map((w) => w.id)) : [];
   const stats = createStats({
     foods, steps, study_sessions: study, workouts, workout_sets: sets, checkins, sleep_logs: sleep,
-    quests, quest_log: questLog, day_plans: plans, weights, workout_templates: templates,
+    quests, quest_log: questLog, day_plans: plans, weights, workout_templates: templates, day_scores: dayScores,
   }, settings, { today: date });
   const ctx = { lang: settings.language, settings, stats, date, templates };
 

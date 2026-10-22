@@ -113,6 +113,7 @@ export default {
     failed: { other: '服务器拒绝了 {n} 项更改。' },
   },
   schedule: {
+    beforeTime: "请选择 {time} 之前的时间",
     eveningAfter: "请选择 {time} 之后的晚上时间",
     dayTypes: '日期类型', dayTypesHint: '短课日：放学后时间多。长课日：你比较累，所以安排更轻。自由日：灵活安排。',
     afterSchool: '放学后', schoolStart: '上学时间', shortFree: '短课日放学', longFree: '长课日放学',

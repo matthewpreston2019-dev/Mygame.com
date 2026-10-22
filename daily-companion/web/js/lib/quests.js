@@ -78,9 +78,19 @@ export function reconcileQuests() {
           if (date === todayStr && store.status.synced) celebrations.push([q.xp, questTitle(q, stats)]);
         } else if (!qs.done && log) {
           store.remove('quest_log', { quest_id: q.id, date });
-        } else if (qs.done && log && log.xp !== q.xp) {
+        } else if (qs.done && log && log.xp !== q.xp && date === todayStr) { // XP edited: today's log follows, past days keep what they earned
           store.put('quest_log', { quest_id: q.id, date, xp: q.xp });
         }
+      }
+    }
+    // Freeze each finished day of the last week once: which quests counted
+    // then (see completion in shared/stats.js). Only after a full download, so
+    // a fresh install doesn't freeze days before your data has arrived.
+    if (store.status.synced) {
+      for (let i = 1; i < 7; i++) {
+        const date = addDays(todayStr, -i);
+        if (store.find('day_scores', { date })) continue;
+        store.put('day_scores', { date, quest_ids: stats.questsFor(date).filter((q) => q.applicable).map((q) => q.quest.id) });
       }
     }
     for (const [xp, title] of celebrations) celebrate(xp, title);

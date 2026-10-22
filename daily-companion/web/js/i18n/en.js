@@ -115,6 +115,7 @@ export default {
     failed: { one: '1 change was rejected by the server.', other: '{n} changes were rejected by the server.' },
   },
   schedule: {
+    beforeTime: "Pick a time before {time}",
     eveningAfter: "Pick an evening time after {time}",
     dayTypes: 'Day types', dayTypesHint: 'Short days: more time after school. Long days: you’re tired, so plans are lighter. Free days: flexible.',
     afterSchool: 'After school', schoolStart: 'School starts', shortFree: 'Short days free', longFree: 'Long days free',

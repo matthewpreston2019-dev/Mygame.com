@@ -19,7 +19,7 @@ export function createMockSupabase() {
   const CONFLICT = {
     profiles: ['user_id'], quest_log: ['user_id', 'quest_id', 'date'], steps: ['user_id', 'date'],
     weights: ['user_id', 'date'], day_plans: ['user_id', 'date'], sleep_logs: ['user_id', 'date'],
-    checkins: ['user_id', 'date'], push_subscriptions: ['endpoint'],
+    checkins: ['user_id', 'date'], day_scores: ['user_id', 'date'], push_subscriptions: ['endpoint'],
   };
 
   function seedUser(u) {

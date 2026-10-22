@@ -124,6 +124,18 @@ export function buildDayPlan({ date, settings, override, nextOverride, gymWeek }
     add({ id: 'exam', kind: 'exam', start: plan.exam.time, end: toHHMM(st + EXAM_MIN), subject: plan.exam.subject });
   }
 
+  // Fixed blocks the others must not overlap, as [start, end) minutes. A block
+  // that would overlap one starts right after it instead.
+  const busy = [];
+  if (plan.exam?.time) busy.push([toMinutes(plan.exam.time), toMinutes(plan.exam.time) + EXAM_MIN]);
+  const firstFreeAt = (at, len) => {
+    for (let moved = true; moved;) {
+      moved = false;
+      for (const [a, b] of busy) if (at < b && at + len > a) { at = b; moved = true; }
+    }
+    return at;
+  };
+
   if (type === 'short' || type === 'long') {
     const free = isHHMM(o?.free_from) ? o.free_from : s.freeFrom?.[type] || '15:00';
     plan.freeFrom = free;
@@ -131,60 +143,62 @@ export function buildDayPlan({ date, settings, override, nextOverride, gymWeek }
       add({ id: 'school', kind: 'school', start: s.schoolStart, end: free });
     }
 
-    // Lay out the after-school blocks in your chosen order and make sure they
-    // finish by check-in time. If they don't fit, trim in this order:
-    // shorter break → shorter study (min 30) → move gym to another day →
-    // whatever study still fits.
+    // Lay out the after-school blocks in your chosen order (jumping over an
+    // exam) and make sure they finish by check-in time. If they don't fit,
+    // trim in this order: shorter break → shorter study (min 30) → move gym
+    // to another day → whatever study still fits → whatever break still fits.
     // Check-in time is the cutoff; a missing/invalid one (or 00:00, which
     // would leave no evening at all) falls back to 21:00.
     const ci = toMinutes(s.checkinAt);
     const cutoff = Number.isFinite(ci) && ci > 0 ? ci : 21 * 60;
-    let start = toMinutes(free);
-    // An exam that runs into the after-school time is a fixed block: start
-    // the evening after it, so relax/gym/study don't overlap the exam. The
-    // trimming below then fits them into the shorter evening.
-    if (plan.exam?.time) {
-      const examStart = toMinutes(plan.exam.time), examEnd = examStart + EXAM_MIN;
-      if (examEnd > start && examStart < cutoff) start = Math.max(start, examEnd);
-    }
+    const order = Array.isArray(s.order) && s.order.length ? s.order : ['relax', 'gym', 'study'];
     let relax = Number(s.relaxMin?.[type] ?? 60);
     let gymOn = !!gym;
     let st = study;
-    const total = () => relax + (gymOn ? s.gymMin + s.afterGymMin : 0) + st;
-    if (start + total() > cutoff) { plan.trimmed = true; relax = Math.min(relax, SHORT_RELAX); }
-    if (start + total() > cutoff && st > 30) st = Math.max(30, st - (start + total() - cutoff));
-    if (start + total() > cutoff && gymOn) { gymOn = false; plan.gymMoved = true; st = study; }
-    if (start + total() > cutoff) st = Math.max(0, cutoff - start - relax);
+    const lengthOf = (step) => (step === 'relax' ? relax : step === 'gym' ? (gymOn ? s.gymMin + s.afterGymMin : 0) : step === 'study' ? st : 0);
+    // Walks through the blocks (calling place(step, start) for each) and
+    // returns how many minutes the last one ends after the cutoff.
+    const layout = (place) => {
+      let at = toMinutes(free);
+      for (const step of order) {
+        const len = lengthOf(step);
+        if (len <= 0) continue;
+        at = firstFreeAt(at, len);
+        if (place) place(step, at);
+        at += len;
+      }
+      return at - cutoff;
+    };
+    if (layout() > 0) { plan.trimmed = true; relax = Math.min(relax, SHORT_RELAX); }
+    if (layout() > 0 && st > 30) st = Math.max(30, st - layout());
+    if (layout() > 0 && gymOn) { gymOn = false; plan.gymMoved = true; st = study; }
+    // Shortening a block can change where it lands around an exam, so a few rounds.
+    for (let i = 0; i < 3 && layout() > 0; i++) st = Math.max(0, st - layout());
     // Not even the break fits (e.g. an evening exam): keep what's left, maybe nothing.
-    if (start + total() > cutoff) relax = Math.max(0, cutoff - start);
+    for (let i = 0; i < 3 && layout() > 0; i++) relax = Math.max(0, relax - layout());
     if (st < MIN_STUDY_BLOCK) st = 0;
     if (!gymOn) gym = null;
     study = st;
 
-    let cursor = start;
-    const order = Array.isArray(s.order) && s.order.length ? s.order : ['relax', 'gym', 'study'];
-    for (const step of order) {
-      if (step === 'relax' && relax > 0) {
-        add({ id: 'relax', kind: 'relax', start: toHHMM(cursor), end: toHHMM(cursor + relax) });
-        cursor += relax;
-      } else if (step === 'gym' && gymOn) {
-        add({ id: 'gym', kind: 'gym', start: toHHMM(cursor), end: toHHMM(cursor + s.gymMin), split: gym });
-        cursor += s.gymMin;
-        add({ id: 'refuel', kind: 'refuel', start: toHHMM(cursor), end: toHHMM(cursor + s.afterGymMin) });
-        cursor += s.afterGymMin;
-      } else if (step === 'study' && study > 0) {
-        add({ id: 'study', kind: 'study', start: toHHMM(cursor), end: toHHMM(cursor + study), minutes: study, focus: plan.studyFocus });
-        cursor += study;
+    layout((step, at) => {
+      if (step === 'relax') {
+        add({ id: 'relax', kind: 'relax', start: toHHMM(at), end: toHHMM(at + relax) });
+      } else if (step === 'gym') {
+        add({ id: 'gym', kind: 'gym', start: toHHMM(at), end: toHHMM(at + s.gymMin), split: gym });
+        add({ id: 'refuel', kind: 'refuel', start: toHHMM(at + s.gymMin), end: toHHMM(at + s.gymMin + s.afterGymMin) });
+      } else if (step === 'study') {
+        add({ id: 'study', kind: 'study', start: toHHMM(at), end: toHHMM(at + study), minutes: study, focus: plan.studyFocus });
       }
-    }
+    });
   } else if (type === 'weekend') {
     if (study > 0 && isHHMM(s.weekendStudyAt)) {
-      const st = toMinutes(s.weekendStudyAt);
-      add({ id: 'study', kind: 'study', start: s.weekendStudyAt, end: toHHMM(st + study), minutes: study, focus: plan.studyFocus });
+      const st = firstFreeAt(toMinutes(s.weekendStudyAt), study);
+      busy.push([st, st + study]);
+      add({ id: 'study', kind: 'study', start: toHHMM(st), end: toHHMM(st + study), minutes: study, focus: plan.studyFocus });
     }
     if (gym && isHHMM(s.weekendGymAt)) {
-      const st = toMinutes(s.weekendGymAt);
-      add({ id: 'gym', kind: 'gym', start: s.weekendGymAt, end: toHHMM(st + s.gymMin), split: gym, catchUp: plan.gymCatchUp });
+      const st = firstFreeAt(toMinutes(s.weekendGymAt), s.gymMin);
+      add({ id: 'gym', kind: 'gym', start: toHHMM(st), end: toHHMM(st + s.gymMin), split: gym, catchUp: plan.gymCatchUp });
     }
   }
 
@@ -195,12 +209,15 @@ export function buildDayPlan({ date, settings, override, nextOverride, gymWeek }
   if (isHHMM(s.checkinAt)) add({ id: 'checkin', kind: 'checkin', start: s.checkinAt, end: s.checkinAt });
   if (isHHMM(s.windDownAt)) add({ id: 'winddown', kind: 'winddown', start: s.windDownAt, end: s.lightsOut || s.windDownAt });
   if (isHHMM(s.lightsOut)) add({ id: 'sleep', kind: 'sleep', start: s.lightsOut, end: s.lightsOut });
-  // Lights out after midnight (e.g. 00:30): the wind-down runs past midnight
-  // and sleep comes last, so both still belong to the end of this day.
+  // Lights out after midnight (00:00–04:00, e.g. 00:30): the wind-down runs
+  // past midnight and sleep comes last, so both still belong to this day.
+  // Any other lights out before wind-down is a settings mix-up (Settings
+  // rejects it): the wind-down then simply has no length.
+  const afterMidnight = (min) => min <= 240;
   const windDown = blocks.find((b) => b.id === 'winddown');
   const sleep = blocks.find((b) => b.id === 'sleep');
-  if (windDown && windDown.endMin < windDown.startMin) windDown.endMin += 1440;
-  if (windDown && sleep && sleep.startMin < windDown.startMin) { sleep.startMin += 1440; sleep.endMin += 1440; }
+  if (windDown && windDown.endMin < windDown.startMin) windDown.endMin = afterMidnight(windDown.endMin) ? windDown.endMin + 1440 : windDown.startMin;
+  if (windDown && sleep && sleep.startMin < windDown.startMin && afterMidnight(sleep.startMin)) { sleep.startMin += 1440; sleep.endMin += 1440; }
 
   plan.blocks = blocks.sort((a, b) => a.startMin - b.startMin || (a.kind === 'school' ? -1 : 1));
   return plan;

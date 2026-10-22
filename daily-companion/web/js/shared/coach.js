@@ -69,9 +69,10 @@ export function messageSchedule(plan, settings) {
 
   const gym = block('gym');
   if (gym) {
-    // 30 min before — but not during an exam that ends shortly before the gym.
+    // 30 min before — but not during an exam that ends shortly before the gym
+    // (and never after the gym has started).
     const exam = block('exam');
-    const at = exam && exam.startMin < gym.startMin ? Math.max(gym.startMin - 30, exam.endMin) : gym.startMin - 30;
+    const at = exam && exam.endMin <= gym.startMin ? Math.max(gym.startMin - 30, exam.endMin) : gym.startMin - 30;
     // If the reminder would land during school, the plan message covers it.
     if (!plan.freeFrom || at >= toMinutes(plan.freeFrom)) add('gym', 'gym', at);
     if (Number.isFinite(checkin) && gym.endMin <= checkin - 60) add('nudge_gym', 'nudges', checkin - 60);

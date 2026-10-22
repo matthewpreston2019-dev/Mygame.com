@@ -323,7 +323,8 @@ function RestTimer() {
   }, []);
   if (!restEndsAt) return null;
   const left = Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000));
-  return html`<div class="rest-timer" role="timer">
+  // The spacer keeps the last buttons (e.g. Delete workout) reachable above the timer.
+  return html`<div class="rest-spacer"></div><div class="rest-timer" role="timer">
     <span class="small muted">${t('workout.rest')}</span>
     <span class="tm grow">${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</span>
     <button class="btn small" onClick=${() => { restEndsAt += 30000; tick((x) => x + 1); }}>+30s</button>
