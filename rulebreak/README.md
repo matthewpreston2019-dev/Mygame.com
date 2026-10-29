@@ -9,6 +9,9 @@ Everything else is procedural: models, particles, shaders and sound. There are n
 
 ## Launch locally
 
+**Single file:** `rulebreak.html` is the whole game in one self-contained HTML file. Open it in a browser, or send it to someone.
+Rebuild it after code changes with `python3 build-single.py`.
+
 Option A, just open it: double-click `rulebreak/index.html`. It runs from `file://` because all
 scripts are plain `<script>` tags with no modules or fetches.
 
