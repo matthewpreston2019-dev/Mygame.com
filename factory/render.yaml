@@ -1,0 +1,30 @@
+# One-click cloud hosting on Render (render.com → New → Blueprint → pick this repo).
+# Runs 24/7 with a persistent disk, so schedules and tasks continue while your laptop is off.
+services:
+  - type: web
+    name: worker-factory
+    runtime: node
+    rootDir: factory
+    plan: starter # always-on; the free plan sleeps and has no disk
+    buildCommand: npm ci --omit=dev
+    startCommand: node server/index.js
+    healthCheckPath: /health
+    disk:
+      name: factory-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /var/data
+      - key: TZ
+        value: Europe/London
+      - key: FACTORY_TOKEN
+        generateValue: true # copy it from the Render dashboard into Settings on each device
+      - key: ANTHROPIC_API_KEY
+        sync: false # you paste this in the dashboard; it is never stored in the repo
+      - key: DAILY_BUDGET_USD
+        value: "2"
+      - key: MONTHLY_BUDGET_USD
+        value: "30"
