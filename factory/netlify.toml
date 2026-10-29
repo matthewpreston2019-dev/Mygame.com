@@ -1,0 +1,11 @@
+# Netlify hosts only the interface (static files). The server, database and schedules run on Supabase.
+[build]
+  command = "npm ci && npm run build"
+  publish = "app"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
