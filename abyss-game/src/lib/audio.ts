@@ -2,7 +2,7 @@
  * Tiny Web Audio synthesizer — all sound effects are generated in code, so the
  * game ships with no audio files and works offline.
  */
-export type Sfx = 'click' | 'tick' | 'tickUrgent' | 'submit' | 'correct' | 'rare' | 'legendary' | 'wrong' | 'timeout' | 'countdown' | 'go' | 'results' | 'unlock'
+export type Sfx = 'click' | 'tick' | 'tickUrgent' | 'submit' | 'correct' | 'rare' | 'legendary' | 'wrong' | 'timeout' | 'countdown' | 'go' | 'results' | 'unlock' | 'descend' | 'dive'
 
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
@@ -58,7 +58,7 @@ export function play(sfx: Sfx) {
   if (!c || !master) return
   switch (sfx) {
     case 'click':
-      tone(660, 0, 0.06, 'sine', 0.08, 880)
+      tone(880, 0, 0.04, 'square', 0.04)
       break
     case 'tick':
       tone(1200, 0, 0.04, 'square', 0.025)
@@ -72,12 +72,13 @@ export function play(sfx: Sfx) {
       bubble(0.07, 420)
       break
     case 'correct':
-      tone(523.25, 0, 0.18, 'triangle', 0.16)
-      tone(659.25, 0.09, 0.18, 'triangle', 0.16)
-      tone(783.99, 0.18, 0.3, 'triangle', 0.16)
+      tone(523.25, 0, 0.12, 'square', 0.06)
+      tone(659.25, 0.08, 0.12, 'square', 0.06)
+      tone(783.99, 0.16, 0.25, 'square', 0.06)
+      tone(261.63, 0, 0.4, 'triangle', 0.1)
       break
     case 'rare':
-      ;[523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => tone(f, i * 0.07, 0.35, 'sine', 0.14))
+      ;[523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => tone(f, i * 0.07, 0.2, 'square', 0.055))
       bubble(0.4, 500)
       bubble(0.48, 700)
       break
@@ -97,15 +98,27 @@ export function play(sfx: Sfx) {
       tone(196, 0.2, 0.45, 'sine', 0.12, 120)
       break
     case 'countdown':
-      tone(440, 0, 0.12, 'sine', 0.12)
+      tone(440, 0, 0.1, 'square', 0.07)
       break
     case 'go':
-      tone(880, 0, 0.25, 'sine', 0.14)
+      tone(880, 0, 0.22, 'square', 0.07)
       bubble(0.05, 500)
       break
     case 'results':
       ;[261.63, 329.63, 392, 523.25].forEach((f, i) => tone(f, i * 0.12, 0.5, 'triangle', 0.13))
       tone(130.81, 0, 1.2, 'sine', 0.1)
+      break
+    case 'dive':
+      // Arcade button thunk + bubbles
+      tone(196, 0, 0.08, 'square', 0.09, 130)
+      bubble(0.05, 320)
+      bubble(0.11, 460)
+      break
+    case 'descend':
+      // Falling chiptune sweep with a trail of bubbles
+      tone(660, 0, 0.9, 'square', 0.04, 110)
+      tone(330, 0.05, 1.0, 'triangle', 0.08, 70)
+      for (let i = 0; i < 5; i++) bubble(0.15 + i * 0.13, 300 + i * 70)
       break
     case 'unlock':
       ;[783.99, 987.77, 1174.66, 1567.98].forEach((f, i) => tone(f, i * 0.06, 0.3, 'sine', 0.1))

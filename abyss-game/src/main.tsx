@@ -1,6 +1,5 @@
-import '@fontsource-variable/sora'
-import '@fontsource-variable/fraunces/wght-italic.css'
-import '@fontsource-variable/fraunces'
+import '@fontsource/press-start-2p/latin-400.css'
+import '@fontsource/vt323/latin-400.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'

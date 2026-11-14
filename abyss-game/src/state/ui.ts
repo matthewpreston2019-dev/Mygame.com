@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type Screen = 'menu' | 'lobby' | 'game' | 'daily' | 'leaderboard' | 'profile' | 'settings'
+export type Screen = 'menu' | 'game' | 'daily' | 'leaderboard' | 'profile' | 'settings'
 
 interface UiState {
   screen: Screen

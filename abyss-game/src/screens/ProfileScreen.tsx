@@ -1,17 +1,16 @@
 import { motion } from 'framer-motion'
-import { Check, Lock, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { Button, Modal, ProgressBar, RarityBadge, ScreenShell, Segmented, StatTile } from '../components/ui'
 import { CATEGORY_META } from '../engine/questionBank'
 import { dailyNumber } from '../engine/rng'
-import { formatShare, TIER_META } from '../engine/scoring'
+import { depthForPoints, formatShare, TIER_META } from '../engine/scoring'
 import { CATEGORIES, type RarityTier } from '../engine/types'
 import { ACHIEVEMENTS, dailyStreak } from '../lib/achievements'
-import { isThemeUnlocked, THEMES, unlockLabel } from '../lib/cosmetics'
 import { levelProgress, nextTitle, titleForLevel } from '../lib/progression'
-import { play } from '../lib/audio'
 import { useProfile } from '../state/profile'
 import { useUi } from '../state/ui'
+import { useGame } from '../state/game'
 
 type Tab = 'stats' | 'awards' | 'history'
 const TIERS: RarityTier[] = ['common', 'uncommon', 'rare', 'epic', 'legendary']
@@ -32,11 +31,10 @@ export default function ProfileScreen() {
   return (
     <ScreenShell title="Diver profile" subtitle="Statistics, achievements and rewards" onBack={() => go('menu')}>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass relative overflow-hidden rounded-3xl p-5 sm:p-6">
-        <div className="absolute -left-12 -top-16 h-48 w-48 rounded-full bg-accent/15 blur-3xl" />
-        <div className="relative flex items-center gap-4">
-          <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-accent-2 text-slate-950">
-            <span className="text-[10px] font-semibold uppercase leading-none">lvl</span>
-            <span className="text-2xl font-bold leading-none">{prog.level}</span>
+                <div className="relative flex items-center gap-4">
+          <div className="font-display flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-1 bg-accent text-[#04151c]">
+            <span className="text-[8px] leading-none">LV</span>
+            <span className="text-lg leading-none">{prog.level}</span>
           </div>
           <div className="min-w-0 flex-1">
             <button
@@ -80,7 +78,7 @@ export default function ProfileScreen() {
             <StatTile label="Daily streak" value={dailyStreak(p.dailies)} />
             <StatTile label="Best dive" value={p.bests.standard} accent />
             <StatTile label="Best daily" value={p.bests.daily} />
-            <StatTile label="Best endless" value={p.bests.endless} />
+            <StatTile label="Deepest dive" value={`${depthForPoints(Math.max(p.bests.standard, p.bests.daily)).toLocaleString('en-US')}m`} />
             <StatTile label="Total points" value={p.totalPoints.toLocaleString()} />
           </div>
 
@@ -147,47 +145,7 @@ export default function ProfileScreen() {
       {tab === 'awards' && (
         <div className="mt-5 space-y-6">
           <section>
-            <h2 className="mb-3 px-1 text-xs font-semibold uppercase tracking-[0.14em] text-mist">Glow themes</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {THEMES.map((t) => {
-                const unlocked = isThemeUnlocked(t, prog.level, p.achievements)
-                const active = p.theme === t.id
-                return (
-                  <button
-                    key={t.id}
-                    disabled={!unlocked}
-                    onClick={() => {
-                      play('unlock')
-                      p.setTheme(t.id)
-                    }}
-                    className={`glass relative overflow-hidden rounded-2xl p-4 text-left transition ${active ? 'ring-2' : ''} ${unlocked ? 'hover:bg-white/10' : 'opacity-50'}`}
-                    style={active ? { boxShadow: `0 0 0 2px ${t.accent}, 0 0 30px -6px ${t.accent}` } : undefined}
-                  >
-                    <div className="flex gap-1.5">
-                      <span className="h-6 w-6 rounded-full" style={{ background: t.accent, boxShadow: `0 0 14px ${t.accent}` }} />
-                      <span className="h-6 w-6 rounded-full" style={{ background: t.accent2 }} />
-                    </div>
-                    <div className="mt-3 text-sm font-semibold">{t.name}</div>
-                    <div className="mt-0.5 flex items-center gap-1 text-xs text-mist">
-                      {active ? (
-                        <>
-                          <Check size={12} /> Equipped
-                        </>
-                      ) : unlocked ? (
-                        'Tap to equip'
-                      ) : (
-                        <>
-                          <Lock size={11} /> {unlockLabel(t)}
-                        </>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-          <section>
-            <h2 className="mb-3 px-1 text-xs font-semibold uppercase tracking-[0.14em] text-mist">
+            <h2 className="mb-3 px-1 text-[9px] uppercase text-mist">
               Achievements · {Object.keys(p.achievements).length}/{ACHIEVEMENTS.length}
             </h2>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -215,7 +173,9 @@ export default function ProfileScreen() {
             <div className="glass rounded-3xl p-8 text-center text-mist">
               <div className="text-4xl">🐚</div>
               <p className="mt-3">No dives logged yet.</p>
-              <Button variant="primary" className="mt-4" onClick={() => go('lobby')}>
+              <Button variant="primary" className="mt-4" onClick={() => {
+                  if (useGame.getState().start('standard')) go('game')
+                }}>
                 Start your first dive
               </Button>
             </div>
@@ -236,7 +196,7 @@ export default function ProfileScreen() {
                     ))}
                   </div>
                 </div>
-                <span className="text-xl font-semibold tabular-nums">{h.score}</span>
+                <span className="text-right leading-tight"><span className="font-display block text-[10px] text-[#ffd23e]">{h.score}</span><span className="block text-lg text-accent">{depthForPoints(h.score).toLocaleString('en-US')}m</span></span>
               </div>
             ))
           )}

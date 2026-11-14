@@ -20,6 +20,11 @@ import type { RarityTier } from './types'
  *
  * 3. Incorrect or empty answers always score 0.
  *
+ * 4. Depth. Every point is worth `depthPerPoint` metres of descent, so a
+ *    common answer (10 pts) sinks you 150 m and a legendary one (100 pts)
+ *    plunges 1,500 m. A wrong answer leaves you where you are. A perfect
+ *    seven-question dive reaches 10,500 m — the bottom of the hadal trench.
+ *
  * Every constant below is configurable in one place.
  */
 export const SCORING = {
@@ -35,6 +40,7 @@ export const SCORING = {
     { tier: 'epic', minShare: 0.01 },
     { tier: 'legendary', minShare: 0 },
   ] as { tier: RarityTier; minShare: number }[],
+  depthPerPoint: 15,
   questionsPerRun: 7,
   secondsPerQuestion: 25,
   endlessLives: 3,
@@ -60,11 +66,11 @@ export function tierForShare(share: number): RarityTier {
 }
 
 export const TIER_META: Record<RarityTier, { label: string; color: string; emoji: string; order: number }> = {
-  common: { label: 'Common', color: '#94a3b8', emoji: '🟦', order: 0 },
-  uncommon: { label: 'Uncommon', color: '#34d399', emoji: '🟩', order: 1 },
-  rare: { label: 'Rare', color: '#38bdf8', emoji: '🟪', order: 2 },
-  epic: { label: 'Epic', color: '#c084fc', emoji: '🟧', order: 3 },
-  legendary: { label: 'Legendary', color: '#fbbf24', emoji: '🟨', order: 4 },
+  common: { label: 'Common', color: '#9fb4c8', emoji: '🟦', order: 0 },
+  uncommon: { label: 'Uncommon', color: '#5cf27a', emoji: '🟩', order: 1 },
+  rare: { label: 'Rare', color: '#3ee8e0', emoji: '🟪', order: 2 },
+  epic: { label: 'Epic', color: '#d27bff', emoji: '🟧', order: 3 },
+  legendary: { label: 'Legendary', color: '#ffd23e', emoji: '🟨', order: 4 },
 }
 
 export function formatShare(share: number): string {
@@ -73,4 +79,9 @@ export function formatShare(share: number): string {
   if (pct >= 1) return `${pct.toFixed(1)}%`
   if (pct >= 0.1) return `${pct.toFixed(2)}%`
   return '<0.1%'
+}
+
+/** Metres of descent earned by a number of points. */
+export function depthForPoints(points: number): number {
+  return points * SCORING.depthPerPoint
 }

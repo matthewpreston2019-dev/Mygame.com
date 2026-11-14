@@ -61,7 +61,7 @@ export default function DailyScreen() {
           {today ? (
             <>
               <div className="mt-4 text-sm uppercase tracking-[0.16em] text-mist">Today’s score</div>
-              <div className="glow-text mt-1 text-6xl font-semibold tabular-nums">{today.score}</div>
+              <div className="font-display mt-2 text-2xl text-[#ffd23e]">{today.score}</div>
               <div className="mt-4 flex gap-1.5">
                 {today.tiers.map((t, i) => (
                   <span key={i} className="h-8 flex-1 rounded-lg" style={{ background: t ? TIER_META[t].color : 'rgba(255,255,255,0.08)', boxShadow: t ? `0 0 14px ${TIER_META[t].color}55` : undefined }} />
@@ -83,7 +83,7 @@ export default function DailyScreen() {
             </>
           ) : (
             <>
-              <h2 className="mt-4 font-display text-3xl font-semibold italic">Today’s descent awaits</h2>
+              <h2 className="mt-4 font-display text-sm text-accent sm:text-base">TODAY’S DIVE AWAITS</h2>
               <p className="mt-2 max-w-md text-mist">
                 Every diver gets the same {SCORING.questionsPerRun} questions today. One attempt only — no pausing. New challenge in{' '}
                 <span className="font-semibold tabular-nums text-ink">{label}</span>.

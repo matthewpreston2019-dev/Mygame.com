@@ -4,37 +4,32 @@ interface Props {
   paused?: boolean
 }
 
+/** Segmented arcade timer: one lit segment per remaining second. */
 export function TimerRing({ remainingMs, totalMs, paused }: Props) {
-  const size = 76
-  const stroke = 5
-  const r = (size - stroke) / 2
-  const c = 2 * Math.PI * r
-  const frac = Math.max(0, Math.min(1, remainingMs / totalMs))
+  const size = 60
+  const segments = Math.round(totalMs / 1000)
   const secs = Math.ceil(remainingMs / 1000)
-  const color = secs <= 5 ? '#f43f5e' : secs <= 10 ? '#fbbf24' : 'var(--accent)'
+  const color = secs <= 5 ? '#ff4f5e' : secs <= 10 ? '#ffd23e' : '#3ee8e0'
+  const cx = size / 2
+  const r = size / 2 - 5
   return (
     <div
-      className={`relative shrink-0 ${secs <= 5 && !paused ? 'animate-pulse' : ''}`}
+      className={`relative shrink-0 ${secs <= 5 && !paused ? 'blink' : ''}`}
       style={{ width: size, height: size }}
       role="timer"
       aria-label={`${secs} seconds remaining`}
     >
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.1)" strokeWidth={stroke} fill="rgba(2,8,20,0.4)" />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke={color}
-          strokeWidth={stroke}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - frac)}
-          style={{ filter: `drop-shadow(0 0 6px ${color})`, transition: 'stroke 0.4s' }}
-        />
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges">
+        <rect x="6" y="6" width={size - 12} height={size - 12} fill="#030814" />
+        {Array.from({ length: segments }, (_, i) => {
+          const a = (i / segments) * Math.PI * 2 - Math.PI / 2
+          const x = Math.round(cx + Math.cos(a) * r) - 2
+          const y = Math.round(cx + Math.sin(a) * r) - 2
+          const lit = i < secs
+          return <rect key={i} x={x} y={y} width="5" height="5" fill={lit ? color : '#16284a'} />
+        })}
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-2xl font-semibold tabular-nums" style={{ color: secs <= 5 ? '#fda4af' : undefined }}>
+      <span className="font-display absolute inset-0 flex items-center justify-center text-sm" style={{ color }}>
         {secs}
       </span>
     </div>

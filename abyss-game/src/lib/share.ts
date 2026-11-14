@@ -1,5 +1,6 @@
 import { dailyNumber } from '../engine/rng'
-import { TIER_META } from '../engine/scoring'
+import { depthForPoints, TIER_META } from '../engine/scoring'
+import { zoneForDepth } from './progression'
 import type { GameSummary } from '../state/profileTypes'
 
 const MODE_LABEL = { standard: 'Dive', daily: 'Daily', endless: 'Endless' } as const
@@ -18,12 +19,12 @@ export function buildShareText(summary: GameSummary): string {
     .filter((r) => r.answer)
     .sort((a, b) => a.answer!.share - b.answer!.share)[0]
   const lines = [
-    `🌊 ${shareTitle(summary)} — ${summary.score} pts`,
+    `🌊 ${shareTitle(summary)} — ${depthForPoints(summary.score).toLocaleString('en-US')} m deep · ${summary.score} pts`,
     resultEmojis(summary),
     `${summary.correct}/${summary.results.length} correct`,
   ]
   if (rarest?.answer) lines.push(`Rarest find: ${TIER_META[rarest.answer.tier].label}`)
-  lines.push('Dive deeper. Answer rarer.')
+  lines.push('The rarer the answer, the deeper the dive.')
   return lines.join('\n')
 }
 
@@ -37,60 +38,62 @@ export async function renderShareCard(summary: GameSummary, accent: string, play
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
 
-  const bg = ctx.createLinearGradient(0, 0, 0, H)
-  bg.addColorStop(0, '#0b2a4a')
-  bg.addColorStop(0.45, '#061a33')
-  bg.addColorStop(1, '#01060f')
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, W, H)
-
-  // light rays
-  ctx.save()
-  ctx.globalAlpha = 0.05
-  ctx.filter = 'blur(24px)'
-  for (let i = 0; i < 6; i++) {
-    ctx.fillStyle = '#bff6ff'
-    ctx.beginPath()
-    const x = 120 + i * 170
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x + 90, 0)
-    ctx.lineTo(x - 140 + i * 30, H * 0.75)
-    ctx.lineTo(x - 260 + i * 30, H * 0.75)
-    ctx.closePath()
-    ctx.fill()
+  // Banded pixel ocean, darkening with depth.
+  const bands: [number, string][] = [
+    [0, '#1c70ac'],
+    [0.18, '#0d4278'],
+    [0.4, '#092654'],
+    [0.62, '#051332'],
+    [0.82, '#030a1e'],
+  ]
+  for (let y = 0; y < H; y += 12) {
+    const f = y / H
+    let c = bands[0][1]
+    for (const [at, col] of bands) if (f >= at) c = col
+    ctx.fillStyle = c
+    ctx.fillRect(0, y, W, 12)
   }
-  ctx.restore()
-
-  // particles
   const rand = (() => {
     let s = summary.score + 7
     return () => ((s = (s * 9301 + 49297) % 233280) / 233280)
   })()
-  for (let i = 0; i < 140; i++) {
-    ctx.fillStyle = `rgba(190,240,255,${0.15 + rand() * 0.45})`
-    ctx.beginPath()
-    ctx.arc(rand() * W, rand() * H, rand() * 2.6 + 0.4, 0, Math.PI * 2)
-    ctx.fill()
+  for (let i = 0; i < 90; i++) {
+    ctx.fillStyle = `rgba(200,240,255,${0.2 + rand() * 0.5})`
+    const sz = rand() < 0.2 ? 12 : 6
+    ctx.fillRect(Math.round((rand() * W) / 6) * 6, Math.round((rand() * H) / 6) * 6, sz, sz)
   }
+  // Pixel frame
+  ctx.fillStyle = '#3ee8e0'
+  ctx.fillRect(36, 36, W - 72, 12)
+  ctx.fillRect(36, H - 48, W - 72, 12)
+  ctx.fillRect(36, 36, 12, H - 72)
+  ctx.fillRect(W - 48, 36, 12, H - 72)
 
+  const pixel = "'Press Start 2P', monospace"
+  const body = "VT323, monospace"
+  const depth = depthForPoints(summary.score)
   ctx.textAlign = 'center'
+  ctx.fillStyle = '#0b5f68'
+  ctx.font = `64px ${pixel}`
+  ctx.fillText('ABYSS', W / 2 + 8, 168)
   ctx.fillStyle = accent
-  ctx.font = '600 40px Sora, system-ui, sans-serif'
-  ctx.fillText('A B Y S S', W / 2, 150)
+  ctx.fillText('ABYSS', W / 2, 160)
 
-  ctx.fillStyle = '#e2f6ff'
-  ctx.font = 'italic 600 64px Fraunces, Georgia, serif'
-  ctx.fillText(shareTitle(summary).replace('ABYSS ', ''), W / 2, 250)
+  ctx.fillStyle = '#ff8fab'
+  ctx.font = `30px ${pixel}`
+  ctx.fillText(shareTitle(summary).replace('ABYSS ', '').toUpperCase(), W / 2, 240)
 
-  ctx.shadowColor = accent
-  ctx.shadowBlur = 60
-  ctx.fillStyle = '#ffffff'
-  ctx.font = '700 260px Sora, system-ui, sans-serif'
-  ctx.fillText(String(summary.score), W / 2, 560)
-  ctx.shadowBlur = 0
-  ctx.fillStyle = 'rgba(226,246,255,0.7)'
-  ctx.font = '500 42px Sora, system-ui, sans-serif'
-  ctx.fillText('points', W / 2, 630)
+  ctx.fillStyle = '#8fb3cf'
+  ctx.font = `26px ${pixel}`
+  ctx.fillText('FINAL DEPTH', W / 2, 340)
+  ctx.fillStyle = '#000'
+  ctx.font = `92px ${pixel}`
+  ctx.fillText(`${depth.toLocaleString('en-US')}M`, W / 2 + 8, 468)
+  ctx.fillStyle = accent
+  ctx.fillText(`${depth.toLocaleString('en-US')}M`, W / 2, 460)
+  ctx.fillStyle = '#e8f6ff'
+  ctx.font = `48px ${body}`
+  ctx.fillText(`${zoneForDepth(depth).toUpperCase()} · ${summary.score} POINTS`, W / 2, 540)
 
   // tier tiles
   const n = summary.results.length
@@ -109,40 +112,29 @@ export async function renderShareCard(summary: GameSummary, accent: string, play
     const y = startY + row * (size + gap)
     const r = summary.results[i]
     ctx.fillStyle = r.answer ? TIER_META[r.answer.tier].color : 'rgba(255,255,255,0.08)'
-    roundRect(ctx, x, y, size, size, 18)
-    ctx.fill()
+    ctx.fillRect(x, y, size, size)
     if (!r.answer) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)'
-      ctx.lineWidth = 3
-      ctx.stroke()
+      ctx.fillStyle = '#ff4f5e'
+      ctx.font = `${Math.round(size * 0.5)}px ${pixel}`
+      ctx.fillText('X', x + size / 2, y + size * 0.72)
     }
   }
 
   const infoY = startY + rows * (size + gap) + 110
   ctx.fillStyle = '#e2f6ff'
-  ctx.font = '600 46px Sora, system-ui, sans-serif'
+  ctx.font = `56px ${body}`
   ctx.fillText(`${summary.correct}/${n} correct`, W / 2, infoY)
 
   const rarest = summary.results.filter((r) => r.answer).sort((a, b) => a.answer!.share - b.answer!.share)[0]
   if (rarest?.answer) {
     ctx.fillStyle = TIER_META[rarest.answer.tier].color
-    ctx.font = '500 40px Sora, system-ui, sans-serif'
+    ctx.font = `52px ${body}`
     ctx.fillText(`Rarest find: “${rarest.answer.canonical}” · ${TIER_META[rarest.answer.tier].label}`, W / 2, infoY + 70, W - 120)
   }
 
   ctx.fillStyle = 'rgba(226,246,255,0.55)'
-  ctx.font = '400 34px Sora, system-ui, sans-serif'
-  ctx.fillText(`${playerName} · Dive deeper. Answer rarer.`, W / 2, H - 80)
+  ctx.font = `44px ${body}`
+  ctx.fillText(`${playerName.toUpperCase()} · THE RARER, THE DEEPER`, W / 2, H - 90)
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'))
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + w, y, x + w, y + h, r)
-  ctx.arcTo(x + w, y + h, x, y + h, r)
-  ctx.arcTo(x, y + h, x, y, r)
-  ctx.arcTo(x, y, x + w, y, r)
-  ctx.closePath()
 }

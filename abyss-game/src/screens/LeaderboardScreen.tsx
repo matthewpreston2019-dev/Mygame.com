@@ -84,7 +84,6 @@ export default function LeaderboardScreen() {
           options={[
             { value: 'standard', label: 'Dive' },
             { value: 'daily', label: 'Today' },
-            { value: 'endless', label: 'Endless' },
           ]}
         />
       </div>

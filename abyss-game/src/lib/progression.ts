@@ -45,12 +45,6 @@ export function xpForGame(score: number, correct: number, completed: boolean): n
   return score + correct * 15 + (completed ? 40 : 0)
 }
 
-/** Depth (metres) shown for a question index — the run descends as you go. */
-export function depthForIndex(index: number, mode: 'standard' | 'daily' | 'endless'): number {
-  if (mode === 'endless') return 150 + index * 450
-  return [150, 800, 2000, 3500, 5000, 7000, 10900][Math.min(index, 6)]
-}
-
 export function zoneForDepth(depth: number): string {
   if (depth < 200) return 'Sunlight Zone'
   if (depth < 1000) return 'Twilight Zone'

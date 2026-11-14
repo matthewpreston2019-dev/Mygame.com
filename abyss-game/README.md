@@ -2,7 +2,7 @@
 
 *Dive deeper. Answer rarer.*
 
-ABYSS is a deep-ocean trivia game. Every question has many correct answers ("Name a country in South America"). You get one answer and 25 seconds, and **rarer correct answers score more**. Seven questions take you from the sunlit shallows down to the hadal trench.
+ABYSS is a retro pixel-art underwater trivia game. Every question has many correct answers ("Name a country in South America"). You get one answer and 25 seconds. **The rarer your correct answer, the more points you score and the deeper your diver, Pip the octopus, sinks.** Seven questions take you from the sunlit surface toward the hadal trench floor at 10,500 m.
 
 This is a standalone project. It doesn't depend on any other project in this repository.
 
@@ -25,23 +25,22 @@ npm run dev          # http://localhost:5173
 
 ## Features
 
-- **Standard Dive**: 7 questions, 25 s each, with difficulty rising as you descend. You can pick which categories to include.
-- **Daily Challenge**: one deterministic set of 7 questions per calendar date, the same for every player. You get one attempt, with no pausing. It tracks streaks and shows the last 7 days.
-- **Endless Descent**: keep answering until you've missed 3 times. Questions get harder the deeper you go.
-- **Rarity scoring**: the reveal shows rarity tiers (Common → Legendary), the estimated share of players for your answer, the most common and rarest answers, every accepted answer and a fact.
-- **Progression**: XP and levels, diver titles, 15 achievements and 6 unlockable glow themes.
-- **Statistics**: accuracy, streaks, best rarity, per-category stats, a tier histogram and game history.
-- **Leaderboards**: a working local leaderboard, plus an optional online one that stays clearly separate.
-- **Share cards**: a generated PNG card plus an emoji text summary, with copy, save or native share.
-- **Settings**: sound toggle and volume, countdown ticks, reduced motion, diver name, export/import of progress, cloud save (optional) and reset.
-- Synthesized sound effects through Web Audio, so there are no audio files. Fonts are bundled, so the game works fully offline.
-- Enter to submit and to continue. A pause and an exit confirmation stop accidental loss of a run. The timer is based on a deadline, so it can't stall.
+- **The dive**: 7 questions, 25 s each, one answer per question. The gameplay screen is a pixel-art ocean rendered to a low-resolution canvas. It has rock walls, kelp, coral, fish, jellyfish, squid and anglerfish, bubbles, marine snow, light rays, and a depth ruler down the left edge. It gets darker the deeper you go, until only your lantern and bioluminescence remain.
+- **Descent**: after each answer the whole world scrolls as your diver sinks by the depth you earned. Speed lines, a bubble trail and a falling chiptune sweep play during the descent. Rare, Epic and Legendary answers add sparks, a flash and (Epic+) a screen shake.
+- **Arcade HUD**: depth meter and zone, score, seven question pips coloured by rarity, pause and sound. Answers go in through a terminal-style input, a pink DIVE button and a segmented 25-second timer.
+- **Results**: final depth and zone, score, a step-chart descent log, every answer with correctness, rarity, points and metres, and a percentile against your own previous dives (shown once you have 3 or more). No made-up global percentile is shown.
+- **Daily Dive**: one deterministic set of 7 questions per calendar date, the same for every player, one attempt, with streaks.
+- **Progression**: XP and levels, diver titles and 15 achievements. Stats, history and a local leaderboard all persist in `localStorage`.
+- **Share cards**: a pixel-style PNG card plus an emoji text summary.
+- **Settings**: sound and volume, countdown ticks, reduced motion (no scrolling tween, shake or ambient motion), diver name, export/import and optional cloud save.
+- Pixel fonts (Press Start 2P, VT323) are bundled and sound effects are synthesised, so the game works fully offline.
 
 ## Scoring (configurable in `src/engine/scoring.ts`)
 
 1. Answers in each question are written **in order from most to least common**. Each answer's estimated share of players follows a Zipf distribution over its rank: `share ∝ 1 / rank^1.15`.
 2. `points = 10 + 90 × min(1, log(1/share) / log(200))`. Each halving of popularity adds the same number of points. Anything at or below a 0.5% share scores 100.
 3. Wrong answers or no answer score 0.
+4. **Depth** = points × 15 m (`depthPerPoint`). A common answer sinks you about 150–400 m and a legendary one about 1,500 m. A wrong answer doesn't move you. The maximum is 10,500 m.
 
 Tiers by share: Common ≥ 15%, Uncommon ≥ 6%, Rare ≥ 2.5%, Epic ≥ 1%, Legendary < 1%.
 
