@@ -98,3 +98,9 @@ src/
 ```
 
 Stack: React 19, TypeScript, Vite, Tailwind CSS 4, Framer Motion, Zustand, optional Supabase.
+
+## Publishing as a website (GitHub Pages)
+
+`.github/workflows/abyss-pages.yml` tests, builds and deploys the game to GitHub Pages on every push to `main` that touches `abyss-game/`. It can also be started by hand from the Actions tab.
+
+One-time setup: in the repository go to **Settings → Pages** and set **Source** to **GitHub Actions**. The game is then served at `https://<owner>.github.io/<repo>/`.

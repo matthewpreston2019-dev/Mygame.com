@@ -7,7 +7,8 @@ import tailwindcss from '@tailwindcss/vite'
 const artifact = process.env.ARTIFACT === '1'
 
 export default defineConfig({
-  base: artifact ? './' : '/',
+  // Relative paths let the same build run from any subfolder (e.g. GitHub Pages).
+  base: process.env.BASE_PATH ?? (artifact ? './' : '/'),
   plugins: [react(), tailwindcss()],
   server: { host: true, port: 5173 },
   build: {
