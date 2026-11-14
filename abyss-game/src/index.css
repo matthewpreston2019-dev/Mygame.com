@@ -1,0 +1,222 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --font-display: 'Fraunces Variable', 'Fraunces', Georgia, serif;
+  --font-sans: 'Sora Variable', 'Sora', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-ink: #e6f7ff;
+  --color-mist: #9fbcd3;
+  --color-deep: #020814;
+}
+
+:root {
+  --accent: #22d3ee;
+  --accent-2: #2dd4bf;
+  --glow: 34 211 238;
+  --depth: 0;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #020814;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: rgb(var(--glow) / 0.35);
+}
+
+/* Glass panels — used sparingly */
+.glass {
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.075), rgb(255 255 255 / 0.025));
+  border: 1px solid rgb(255 255 255 / 0.09);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.06) inset,
+    0 20px 50px -20px rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+.glow-text {
+  text-shadow:
+    0 0 24px rgb(var(--glow) / 0.55),
+    0 0 2px rgb(var(--glow) / 0.8);
+}
+
+.glow-ring {
+  box-shadow:
+    0 0 0 1px rgb(var(--glow) / 0.5),
+    0 0 30px -4px rgb(var(--glow) / 0.55);
+}
+
+.text-gradient {
+  background: linear-gradient(120deg, #ffffff 10%, var(--accent) 55%, var(--accent-2) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Custom focus ring, no default browser outlines */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+/* Fade behind sticky bottom action bars so content never collides with them */
+.action-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin-inline: -1rem;
+  padding: 2rem 1rem max(1rem, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgb(2 8 20 / 0.95) 45%, rgb(2 8 20 / 0));
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--glow) / 0.35) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--glow) / 0.3);
+  border-radius: 99px;
+}
+
+/* Range input */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent) var(--fill, 50%), rgb(255 255 255 / 0.12) var(--fill, 50%));
+}
+input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 99px;
+  background: rgb(255 255 255 / 0.12);
+}
+input[type='range']::-moz-range-progress {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--accent);
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 20px;
+  width: 20px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(var(--glow) / 0.35);
+}
+input[type='range']::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(var(--glow) / 0.35);
+}
+
+@keyframes ray-sway {
+  0%,
+  100% {
+    transform: translateX(-2%) skewX(-8deg);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translateX(2%) skewX(-4deg);
+    opacity: 0.9;
+  }
+}
+@keyframes drift {
+  0% {
+    transform: translate3d(-10vw, 0, 0);
+  }
+  100% {
+    transform: translate3d(110vw, -6vh, 0);
+  }
+}
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-bob {
+  animation: bob 6s ease-in-out infinite;
+}
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+.shimmer {
+  background-image: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.25) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 2.8s linear infinite;
+}
+
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-bob,
+  .animate-pulse-glow,
+  .shimmer {
+    animation: none;
+  }
+}
