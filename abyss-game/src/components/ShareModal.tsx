@@ -1,6 +1,7 @@
 import { Copy, Download, Share2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { THEMES } from '../lib/cosmetics'
+import { HOSTED_PAGE } from '../lib/platform'
 import { buildShareText, renderShareCard } from '../lib/share'
 import { useProfile } from '../state/profile'
 import type { GameSummary } from '../state/profileTypes'
@@ -66,14 +67,17 @@ export function ShareModal({ summary, open, onClose, onToast }: { summary: GameS
         {url ? <img src={url} alt="Result card" className="block aspect-[4/5] w-full" /> : <div className="shimmer aspect-[4/5] w-full" />}
       </div>
       <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-white/5 p-3 font-sans text-sm leading-relaxed text-ink/90">{text}</pre>
+      {HOSTED_PAGE && <p className="mt-2 text-center text-xs text-mist">Right-click or long-press the card to save the image.</p>}
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Button icon={<Copy size={16} />} onClick={copy}>
+        <Button icon={<Copy size={16} />} onClick={copy} className={HOSTED_PAGE ? 'col-span-2' : ''}>
           Copy text
         </Button>
-        <Button icon={<Download size={16} />} onClick={download} disabled={!url}>
-          Save image
-        </Button>
-        {typeof navigator !== 'undefined' && 'share' in navigator && (
+        {!HOSTED_PAGE && (
+          <Button icon={<Download size={16} />} onClick={download} disabled={!url}>
+            Save image
+          </Button>
+        )}
+        {!HOSTED_PAGE && typeof navigator !== 'undefined' && 'share' in navigator && (
           <Button variant="primary" className="col-span-2" icon={<Share2 size={16} />} onClick={nativeShare}>
             Share…
           </Button>

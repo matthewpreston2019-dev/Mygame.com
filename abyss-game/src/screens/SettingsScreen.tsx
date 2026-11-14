@@ -4,6 +4,7 @@ import { Button, Modal, Panel, ScreenShell, Toast, Toggle } from '../components/
 import { QUESTIONS } from '../engine/questionBank'
 import { play } from '../lib/audio'
 import { cloudLoad, cloudSave, onlineConfigured } from '../lib/online'
+import { HOSTED_PAGE } from '../lib/platform'
 import { stripActions, useProfile } from '../state/profile'
 import type { ProfileData } from '../state/profileTypes'
 import { useUi } from '../state/ui'
@@ -21,9 +22,22 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState(false)
   const [draftName, setDraftName] = useState(name)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
 
-  const exportData = () => {
-    const blob = new Blob([JSON.stringify(stripActions(useProfile.getState()), null, 2)], { type: 'application/json' })
+  const exportData = async () => {
+    const json = JSON.stringify(stripActions(useProfile.getState()))
+    if (HOSTED_PAGE) {
+      // Downloads are blocked on the hosted page, so the save travels as text.
+      try {
+        await navigator.clipboard.writeText(json)
+        setToast('Save code copied — paste it into Import on another device')
+      } catch {
+        setToast('Copy was blocked by the browser')
+      }
+      return
+    }
+    const blob = new Blob([JSON.stringify(JSON.parse(json), null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = `abyss-progress-${new Date().toISOString().slice(0, 10)}.json`
@@ -32,9 +46,9 @@ export default function SettingsScreen() {
     setToast('Progress exported')
   }
 
-  const importData = async (file: File) => {
+  const importData = async (file: File | string) => {
     try {
-      const data = JSON.parse(await file.text()) as ProfileData
+      const data = JSON.parse(typeof file === 'string' ? file : await file.text()) as ProfileData
       if (typeof data !== 'object' || typeof data.xp !== 'number' || !Array.isArray(data.history)) throw new Error('bad file')
       importProfile(data)
       setDraftName(data.name)
@@ -121,10 +135,10 @@ export default function SettingsScreen() {
           <h2 className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-mist">Your data</h2>
           <p className="mb-4 text-sm text-mist">Progress is saved automatically on this device. Export a backup or move it to another browser.</p>
           <div className="grid grid-cols-2 gap-2">
-            <Button icon={<Download size={16} />} onClick={exportData}>
-              Export
+            <Button icon={<Download size={16} />} onClick={() => void exportData()}>
+              {HOSTED_PAGE ? 'Copy save code' : 'Export'}
             </Button>
-            <Button icon={<Upload size={16} />} onClick={() => fileRef.current?.click()}>
+            <Button icon={<Upload size={16} />} onClick={() => (HOSTED_PAGE ? setPasteOpen(true) : fileRef.current?.click())}>
               Import
             </Button>
             <input
@@ -136,6 +150,7 @@ export default function SettingsScreen() {
                 const f = e.target.files?.[0]
                 if (f) void importData(f)
                 e.target.value = ''
+                setPasteOpen(false)
               }}
             />
           </div>
@@ -178,6 +193,31 @@ export default function SettingsScreen() {
             }}
           >
             Reset
+          </Button>
+        </div>
+      </Modal>
+      <Modal open={pasteOpen} onClose={() => setPasteOpen(false)} title="Import progress">
+        <p className="text-sm text-mist">Paste a save code copied from Settings, or choose a saved .json file.</p>
+        <textarea
+          id="paste-save"
+          value={pasteText}
+          onChange={(e) => setPasteText(e.target.value)}
+          rows={5}
+          aria-label="Save code"
+          className="mt-3 w-full rounded-2xl border border-white/10 bg-white/5 p-3 font-mono text-xs"
+        />
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button onClick={() => fileRef.current?.click()}>Choose file</Button>
+          <Button
+            variant="primary"
+            disabled={!pasteText.trim()}
+            onClick={() => {
+              void importData(pasteText)
+              setPasteText('')
+              setPasteOpen(false)
+            }}
+          >
+            Import
           </Button>
         </div>
       </Modal>
